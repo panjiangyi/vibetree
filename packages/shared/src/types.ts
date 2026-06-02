@@ -59,7 +59,6 @@ export type UpdateProjectInput = {
   name?: string
   mainBranch?: string
   setupScript?: string | null
-  worktreeBasePath?: string
 }
 
 export type CreateWorktreeInput = {

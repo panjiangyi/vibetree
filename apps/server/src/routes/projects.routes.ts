@@ -15,7 +15,6 @@ const updateProjectSchema = z.object({
   name: z.string().optional(),
   mainBranch: z.string().optional(),
   setupScript: z.string().nullable().optional(),
-  worktreeBasePath: z.string().optional(),
 })
 
 export async function registerProjectRoutes(

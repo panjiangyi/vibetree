@@ -1,5 +1,6 @@
 import path from 'node:path'
 import fs from 'node:fs'
+import os from 'node:os'
 import { nanoid } from 'nanoid'
 import type { Project, CreateProjectInput, UpdateProjectInput } from '@vibetree/shared'
 import * as git from '../git/git.service.js'
@@ -13,10 +14,8 @@ type ProjectRepo = ReturnType<typeof createProjectRepository>
 type WorktreeRepo = ReturnType<typeof createWorktreeRepository>
 type TerminalRepo = ReturnType<typeof createTerminalRepository>
 
-function defaultWorktreeBasePath(repoPath: string): string {
-  const parent = path.dirname(repoPath)
-  const name = path.basename(repoPath)
-  return path.join(parent, `${name}-worktrees`)
+function defaultWorktreeBasePath(projectName: string): string {
+  return path.join(os.homedir(), '.worktree', projectName)
 }
 
 export type ProjectService = ReturnType<typeof createProjectService>
@@ -46,13 +45,14 @@ export function createProjectService(
       }
 
       const mainBranch = input.mainBranch || await git.detectDefaultBranch(repoRoot)
+      const projectName = input.name ?? path.basename(repoRoot)
 
       const now = new Date().toISOString()
       const project: Project = {
         id: `proj_${nanoid()}`,
-        name: input.name ?? path.basename(repoRoot),
+        name: projectName,
         repoPath: normalizePath(repoRoot),
-        worktreeBasePath: input.worktreeBasePath ?? defaultWorktreeBasePath(repoRoot),
+        worktreeBasePath: defaultWorktreeBasePath(projectName),
         mainBranch,
         setupScript: input.setupScript ?? null,
         createdAt: now,

@@ -14,7 +14,6 @@ export function ProjectSettingsDialog() {
   const [name, setName] = useState(project.name)
   const [mainBranch, setMainBranch] = useState(project.mainBranch)
   const [setupScript, setSetupScript] = useState(project.setupScript || '')
-  const [worktreeBasePath, setWorktreeBasePath] = useState(project.worktreeBasePath)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -28,7 +27,6 @@ export function ProjectSettingsDialog() {
         name: name.trim(),
         mainBranch: mainBranch.trim(),
         setupScript: setupScript.trim() || null,
-        worktreeBasePath: worktreeBasePath.trim(),
       })
       closeDialog()
     } catch (err) {
@@ -94,17 +92,9 @@ export function ProjectSettingsDialog() {
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5">
-              Worktree Base Path
-            </label>
-            <input
-              type="text"
-              value={worktreeBasePath}
-              onChange={(e) => setWorktreeBasePath(e.target.value)}
-              className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
+          <p className="text-xs text-neutral-500">
+            Worktrees are stored at: <code className="text-neutral-400">~/.worktree/{project.name}/[branch]</code>
+          </p>
 
           {error && (
             <div className="text-sm text-red-400 bg-red-400/10 px-3 py-2 rounded">

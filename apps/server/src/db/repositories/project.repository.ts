@@ -34,7 +34,7 @@ export function createProjectRepository(db: Database.Database) {
     VALUES (@id, @name, @repoPath, @worktreeBasePath, @mainBranch, @setupScript, @createdAt, @updatedAt)
   `)
   const updateStmt = db.prepare(`
-    UPDATE projects SET name = @name, main_branch = @mainBranch, setup_script = @setupScript, worktree_base_path = @worktreeBasePath, updated_at = @updatedAt WHERE id = @id
+    UPDATE projects SET name = @name, main_branch = @mainBranch, setup_script = @setupScript, updated_at = @updatedAt WHERE id = @id
   `)
   const deleteStmt = db.prepare('DELETE FROM projects WHERE id = ?')
 
@@ -76,7 +76,6 @@ export function createProjectRepository(db: Database.Database) {
         name: input.name ?? project.name,
         mainBranch: input.mainBranch ?? project.mainBranch,
         setupScript: input.setupScript === undefined ? project.setupScript : input.setupScript,
-        worktreeBasePath: input.worktreeBasePath ?? project.worktreeBasePath,
         updatedAt: new Date().toISOString(),
       })
     },

@@ -9,13 +9,11 @@ export function AddProjectDialog() {
   const addProject = useProjectStore((s) => s.addProject)
 
   const [repoPath, setRepoPath] = useState('')
-  const [worktreeBasePath, setWorktreeBasePath] = useState('')
   const [mainBranch, setMainBranch] = useState('')
   const [setupScript, setSetupScript] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showDirectoryPicker, setShowDirectoryPicker] = useState(false)
-  const [directoryPickerTarget, setDirectoryPickerTarget] = useState<'repo' | 'worktree'>('repo')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,7 +23,6 @@ export function AddProjectDialog() {
     try {
       await addProject({
         repoPath: repoPath.trim(),
-        worktreeBasePath: worktreeBasePath.trim() || undefined,
         mainBranch: mainBranch.trim() || undefined,
         setupScript: setupScript.trim() || undefined,
       })
@@ -38,11 +35,7 @@ export function AddProjectDialog() {
   }
 
   const handleDirectorySelect = (path: string) => {
-    if (directoryPickerTarget === 'repo') {
-      setRepoPath(path)
-    } else {
-      setWorktreeBasePath(path)
-    }
+    setRepoPath(path)
     setShowDirectoryPicker(false)
   }
 
@@ -73,45 +66,13 @@ export function AddProjectDialog() {
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    setDirectoryPickerTarget('repo')
-                    setShowDirectoryPicker(true)
-                  }}
+                  onClick={() => setShowDirectoryPicker(true)}
                   className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-neutral-700"
                   title="Browse directories"
                 >
                   <FolderOpen className="w-5 h-5" />
                 </button>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1.5">
-                Worktree Base Path <span className="text-neutral-500">(optional)</span>
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={worktreeBasePath}
-                  onChange={(e) => setWorktreeBasePath(e.target.value)}
-                  placeholder="/path/to/store/worktrees"
-                  className="flex-1 px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDirectoryPickerTarget('worktree')
-                    setShowDirectoryPicker(true)
-                  }}
-                  className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-neutral-700"
-                  title="Browse directories"
-                >
-                  <FolderOpen className="w-5 h-5" />
-                </button>
-              </div>
-              <p className="text-xs text-neutral-500 mt-1">
-                Defaults to sibling directory: {repoPath ? `${repoPath}-worktrees` : 'repo-worktrees'}
-              </p>
             </div>
 
             <div>
@@ -145,6 +106,10 @@ export function AddProjectDialog() {
                 Runs automatically after creating a new worktree
               </p>
             </div>
+
+            <p className="text-xs text-neutral-500">
+              Worktrees will be created at: <code className="text-neutral-400">~/.worktree/[project-name]/[branch]</code>
+            </p>
 
             {error && (
               <div className="text-sm text-red-400 bg-red-400/10 px-3 py-2 rounded">
