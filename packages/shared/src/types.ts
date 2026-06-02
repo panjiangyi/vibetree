@@ -1,0 +1,76 @@
+export type Project = {
+  id: string
+  name: string
+  repoPath: string
+  worktreeBasePath: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type Worktree = {
+  id: string
+  projectId: string
+  name: string
+  path: string
+  branch: string | null
+  head: string | null
+  isMain: boolean
+  isDirty: boolean
+  createdByApp: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type TerminalStatus =
+  | 'running'
+  | 'exited'
+  | 'killed'
+  | 'disconnected'
+
+export type TerminalSession = {
+  id: string
+  projectId: string
+  worktreeId: string
+  title: string
+  shell: string
+  cwd: string
+  status: TerminalStatus
+  pid: number | null
+  cols: number
+  rows: number
+  exitCode: number | null
+  lastActiveAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type CreateProjectInput = {
+  repoPath: string
+  worktreeBasePath?: string
+  name?: string
+}
+
+export type CreateWorktreeInput = {
+  branch: string
+  baseRef: string
+  path: string
+  name?: string
+}
+
+export type CreateTerminalInput = {
+  shell?: string
+  title?: string
+  cols?: number
+  rows?: number
+}
+
+export type UpdateTerminalInput = {
+  title?: string
+}
+
+export type ApiErrorPayload = {
+  error: {
+    code: string
+    message: string
+  }
+}

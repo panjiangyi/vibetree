@@ -1,0 +1,204 @@
+import { nanoid } from 'nanoid'
+import type { Worktree, CreateWorktreeInput } from '@vibetree/shared'
+import * as git from '../git/git.service.js'
+import { assertPathInside, normalizePath } from '../security/path-safety.js'
+import {
+  AppError,
+  WORKTREE_NOT_FOUND,
+  WORKTREE_PATH_EXISTS,
+  WORKTREE_DIRTY,
+  WORKTREE_HAS_RUNNING_TERMINALS,
+  CANNOT_REMOVE_MAIN_WORKTREE,
+  BASE_REF_NOT_FOUND,
+  BRANCH_EXISTS,
+  PROJECT_NOT_FOUND,
+} from '../../utils/app-error.js'
+import type { createProjectRepository } from '../../db/repositories/project.repository.js'
+import type { createWorktreeRepository } from '../../db/repositories/worktree.repository.js'
+import type { createTerminalRepository } from '../../db/repositories/terminal.repository.js'
+
+function getWorktreeName(info: { path: string; branch: string | null }, project: { repoPath: string }): string {
+  if (normalizePath(info.path) === normalizePath(project.repoPath)) {
+    return 'main'
+  }
+  if (info.branch) {
+    return info.branch.replace(/[\/\\]/g, '-')
+  }
+  return info.path.split('/').pop() ?? 'unknown'
+}
+
+export function createWorktreeService(
+  projectRepo: ReturnType<typeof createProjectRepository>,
+  worktreeRepo: ReturnType<typeof createWorktreeRepository>,
+  terminalRepo: ReturnType<typeof createTerminalRepository>
+) {
+  return {
+    async syncProjectWorktrees(projectId: string): Promise<void> {
+      const project = projectRepo.findById(projectId)
+      if (!project) return
+
+      const gitWorktrees = await git.listWorktrees(project.repoPath)
+      const keptIds: string[] = []
+
+      for (const info of gitWorktrees) {
+        const existing = worktreeRepo.findByPath(info.path)
+        const isMain = normalizePath(info.path) === normalizePath(project.repoPath)
+
+        let isDirty = false
+        try {
+          isDirty = await git.isWorktreeDirty(info.path)
+        } catch {
+          // Path might not exist
+        }
+
+        const now = new Date().toISOString()
+        const worktree: Worktree = {
+          id: existing?.id ?? `wt_${nanoid()}`,
+          projectId,
+          name: getWorktreeName(info, project),
+          path: info.path,
+          branch: info.branch,
+          head: info.head,
+          isMain,
+          isDirty,
+          createdByApp: existing?.createdByApp ?? false,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        }
+
+        worktreeRepo.upsert(worktree)
+        keptIds.push(worktree.id)
+      }
+
+      // Clean up worktrees that no longer exist in git
+      const existingWorktrees = worktreeRepo.findByProjectId(projectId)
+      for (const wt of existingWorktrees) {
+        if (!keptIds.includes(wt.id)) {
+          const runningCount = terminalRepo.countRunningByWorktreeId(wt.id)
+          if (runningCount === 0) {
+            worktreeRepo.delete(wt.id)
+          }
+        }
+      }
+    },
+
+    async createWorktree(projectId: string, input: CreateWorktreeInput): Promise<Worktree> {
+      const project = projectRepo.findById(projectId)
+      if (!project) {
+        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
+      }
+
+      // Validate path is inside worktreeBasePath
+      assertPathInside(project.worktreeBasePath, input.path)
+
+      // Check path doesn't exist
+      const existingAtPath = worktreeRepo.findByPath(input.path)
+      if (existingAtPath) {
+        throw new AppError(WORKTREE_PATH_EXISTS, 'Path already exists')
+      }
+
+      // Check base ref exists
+      const baseRefExists = await git.refExists(project.repoPath, input.baseRef)
+      if (!baseRefExists) {
+        throw new AppError(BASE_REF_NOT_FOUND, 'Base ref not found')
+      }
+
+      // Check branch doesn't exist
+      const branchAlreadyExists = await git.branchExists(project.repoPath, input.branch)
+      if (branchAlreadyExists) {
+        throw new AppError(BRANCH_EXISTS, 'Branch already exists')
+      }
+
+      // Create worktree in git
+      await git.createWorktree({
+        repoPath: project.repoPath,
+        branch: input.branch,
+        path: input.path,
+        baseRef: input.baseRef,
+      })
+
+      // Sync to get the new worktree
+      await this.syncProjectWorktrees(projectId)
+
+      const newWorktree = worktreeRepo.findByPath(input.path)
+      if (!newWorktree) {
+        throw new AppError('WORKTREE_CREATE_FAILED', 'Failed to create worktree')
+      }
+
+      // Mark as created by app
+      worktreeRepo.upsert({ ...newWorktree, createdByApp: true })
+
+      return { ...newWorktree, createdByApp: true }
+    },
+
+    async removeWorktree(worktreeId: string): Promise<void> {
+      const wt = worktreeRepo.findById(worktreeId)
+      if (!wt) {
+        throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
+      }
+
+      if (wt.isMain) {
+        throw new AppError(CANNOT_REMOVE_MAIN_WORKTREE, 'Cannot remove main worktree')
+      }
+
+      const runningCount = terminalRepo.countRunningByWorktreeId(worktreeId)
+      if (runningCount > 0) {
+        throw new AppError(
+          WORKTREE_HAS_RUNNING_TERMINALS,
+          'Close terminals before removing worktree'
+        )
+      }
+
+      if (wt.isDirty) {
+        throw new AppError(WORKTREE_DIRTY, 'Cannot remove dirty worktree')
+      }
+
+      const project = projectRepo.findById(wt.projectId)
+      if (!project) {
+        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
+      }
+
+      // Verify path exists in git worktree list
+      const gitWorktrees = await git.listWorktrees(project.repoPath)
+      const existsInGit = gitWorktrees.some(
+        (info) => normalizePath(info.path) === normalizePath(wt.path)
+      )
+      if (!existsInGit) {
+        // Just remove from DB if not in git
+        worktreeRepo.delete(worktreeId)
+        return
+      }
+
+      await git.removeWorktree({
+        repoPath: project.repoPath,
+        path: wt.path,
+      })
+
+      worktreeRepo.delete(worktreeId)
+      await this.syncProjectWorktrees(wt.projectId)
+    },
+
+    async refreshWorktreeDirty(worktreeId: string): Promise<Worktree> {
+      const wt = worktreeRepo.findById(worktreeId)
+      if (!wt) {
+        throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
+      }
+
+      let isDirty = false
+      try {
+        isDirty = await git.isWorktreeDirty(wt.path)
+      } catch {
+        // Path might not exist
+      }
+
+      const now = new Date().toISOString()
+      worktreeRepo.upsert({ ...wt, isDirty, updatedAt: now })
+
+      return { ...wt, isDirty, updatedAt: now }
+    },
+
+    listWorktrees(projectId: string): Worktree[] {
+      return worktreeRepo.findByProjectId(projectId)
+    },
+  }
+}
