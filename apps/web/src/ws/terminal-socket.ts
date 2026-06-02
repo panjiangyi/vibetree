@@ -7,16 +7,20 @@ class TerminalSocket {
   private listeners = new Set<Listener>()
   private queue: TerminalClientMessage[] = []
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
+  private connecting = false
 
   connect() {
+    if (this.connecting) return
     if (this.ws && this.ws.readyState === WebSocket.OPEN) return
 
+    this.connecting = true
     const wsBase = import.meta.env.VITE_API_BASE?.replace('http', 'ws') ?? 'ws://127.0.0.1:3767'
     const url = `${wsBase}/ws/terminal`
 
     this.ws = new WebSocket(url)
 
     this.ws.onopen = () => {
+      this.connecting = false
       for (const message of this.queue) {
         this.send(message)
       }
@@ -32,10 +36,12 @@ class TerminalSocket {
 
     this.ws.onclose = () => {
       this.ws = null
+      this.connecting = false
       this.reconnectTimeout = setTimeout(() => this.connect(), 1000)
     }
 
     this.ws.onerror = () => {
+      this.connecting = false
       this.ws?.close()
     }
   }
@@ -75,6 +81,7 @@ class TerminalSocket {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout)
     }
+    this.connecting = false
     this.ws?.close()
     this.ws = null
   }
