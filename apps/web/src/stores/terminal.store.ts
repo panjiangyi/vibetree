@@ -5,7 +5,7 @@ import { useLayoutStore } from './layout.store.js'
 
 type TerminalStore = {
   terminals: TerminalSession[]
-  activeTerminalId: string | null
+  activeWorktreeId: string | null
   loading: boolean
   error: string | null
 
@@ -15,12 +15,12 @@ type TerminalStore = {
   closeTerminal: (terminalId: string) => Promise<void>
   renameTerminal: (terminalId: string, title: string) => Promise<void>
   restartTerminal: (terminalId: string) => Promise<void>
-  setActiveTerminal: (terminalId: string | null) => void
+  setActiveWorktree: (worktreeId: string | null) => void
 }
 
 export const useTerminalStore = create<TerminalStore>((set, get) => ({
   terminals: [],
-  activeTerminalId: localStorage.getItem('vibetree.activeTerminalId'),
+  activeWorktreeId: localStorage.getItem('vibetree.activeWorktreeId'),
   loading: false,
   error: null,
 
@@ -29,18 +29,6 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     try {
       const terminals = await terminalsApi.listTerminals()
       set({ terminals, loading: false })
-
-      // Validate active terminal still exists
-      const { activeTerminalId } = get()
-      if (activeTerminalId && !terminals.some((t) => t.id === activeTerminalId)) {
-        const firstTerminal = terminals[0]
-        set({ activeTerminalId: firstTerminal?.id ?? null })
-        if (firstTerminal) {
-          localStorage.setItem('vibetree.activeTerminalId', firstTerminal.id)
-        } else {
-          localStorage.removeItem('vibetree.activeTerminalId')
-        }
-      }
     } catch (error) {
       set({ error: (error as Error).message, loading: false })
     }
@@ -49,21 +37,19 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   openTerminalForWorktree: async (worktreeId: string) => {
     const { terminals } = get()
 
-    // Find running terminal for this worktree
+    get().setActiveWorktree(worktreeId)
+
     const running = terminals
       .filter((t) => t.worktreeId === worktreeId && t.status === 'running')
       .sort((a, b) => (b.lastActiveAt ?? '').localeCompare(a.lastActiveAt ?? ''))
 
     if (running[0]) {
-      get().setActiveTerminal(running[0].id)
-      useLayoutStore.getState().addPaneForTerminal(running[0].id, running[0].title)
+      useLayoutStore.getState().addPaneForTerminal(worktreeId, running[0].id, running[0].title)
       return
     }
 
-    // Create new terminal
     const terminal = await get().createTerminal(worktreeId)
-    get().setActiveTerminal(terminal.id)
-    useLayoutStore.getState().addPaneForTerminal(terminal.id, terminal.title)
+    useLayoutStore.getState().addPaneForTerminal(worktreeId, terminal.id, terminal.title)
   },
 
   createTerminal: async (worktreeId: string, input: CreateTerminalInput = {}) => {
@@ -84,25 +70,14 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   closeTerminal: async (terminalId: string) => {
     try {
       await terminalsApi.deleteTerminal(terminalId)
-      set((state) => {
-        const terminals = state.terminals.filter((t) => t.id !== terminalId)
-        let activeTerminalId = state.activeTerminalId
+      set((state) => ({
+        terminals: state.terminals.filter((t) => t.id !== terminalId),
+      }))
 
-        if (activeTerminalId === terminalId) {
-          const closedIndex = state.terminals.findIndex((t) => t.id === terminalId)
-          const nextTerminal = terminals[closedIndex] || terminals[closedIndex - 1] || terminals[0]
-          activeTerminalId = nextTerminal?.id ?? null
-          if (activeTerminalId) {
-            localStorage.setItem('vibetree.activeTerminalId', activeTerminalId)
-          } else {
-            localStorage.removeItem('vibetree.activeTerminalId')
-          }
-        }
-
-        return { terminals, activeTerminalId }
-      })
-
-      useLayoutStore.getState().removePane(terminalId)
+      const terminal = get().terminals.find((t) => t.id === terminalId)
+      if (terminal) {
+        useLayoutStore.getState().removePane(terminal.worktreeId, terminalId)
+      }
     } catch (error) {
       set({ error: (error as Error).message })
       throw error
@@ -128,22 +103,21 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       const terminal = await terminalsApi.restartTerminal(terminalId)
       set((state) => ({
         terminals: state.terminals.map((t) => (t.id === terminalId ? terminal : t)),
-        activeTerminalId: terminalId,
         loading: false,
       }))
-      localStorage.setItem('vibetree.activeTerminalId', terminalId)
     } catch (error) {
       set({ error: (error as Error).message, loading: false })
       throw error
     }
   },
 
-  setActiveTerminal: (terminalId: string | null) => {
-    set({ activeTerminalId: terminalId })
-    if (terminalId) {
-      localStorage.setItem('vibetree.activeTerminalId', terminalId)
+  setActiveWorktree: (worktreeId: string | null) => {
+    set({ activeWorktreeId: worktreeId })
+    useLayoutStore.getState().setActiveWorktree(worktreeId)
+    if (worktreeId) {
+      localStorage.setItem('vibetree.activeWorktreeId', worktreeId)
     } else {
-      localStorage.removeItem('vibetree.activeTerminalId')
+      localStorage.removeItem('vibetree.activeWorktreeId')
     }
   },
 }))

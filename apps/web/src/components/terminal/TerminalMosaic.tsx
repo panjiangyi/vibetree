@@ -1,18 +1,19 @@
 import { Mosaic, MosaicWindow } from 'react-mosaic-component'
 import 'react-mosaic-component/react-mosaic-component.css'
-import { X, Maximize2 } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 import { useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { TerminalPane } from './TerminalPane.js'
 
 export function TerminalMosaic() {
-  const layout = useLayoutStore((s) => s.layout)
-  const setLayout = useLayoutStore((s) => s.setLayout)
+  const activeWorktreeId = useLayoutStore((s) => s.activeWorktreeId)
+  const layout = useLayoutStore((s) => s.getCurrentLayout())
+  const setLayoutForWorktree = useLayoutStore((s) => s.setLayoutForWorktree)
   const removePane = useLayoutStore((s) => s.removePane)
   const terminalIdToTitle = useLayoutStore((s) => s.terminalIdToTitle)
-  const setActiveTerminal = useTerminalStore((s) => s.setActiveTerminal)
+  const openTerminalForWorktree = useTerminalStore((s) => s.openTerminalForWorktree)
 
-  if (!layout) {
+  if (!activeWorktreeId || !layout) {
     return (
       <div className="flex-1 flex items-center justify-center text-neutral-500">
         <div className="text-center">
@@ -27,23 +28,23 @@ export function TerminalMosaic() {
     <div className="flex-1 min-h-0">
       <Mosaic<string>
         value={layout}
-        onChange={(newLayout) => setLayout(newLayout)}
+        onChange={(newLayout) => setLayoutForWorktree(activeWorktreeId, newLayout)}
         renderTile={(id, path) => (
           <MosaicWindow<string>
             path={path}
             title={terminalIdToTitle[id] || id}
             toolbarControls={[
               <button
-                key="maximize"
-                onClick={() => setActiveTerminal(id)}
+                key="new-terminal"
+                onClick={() => openTerminalForWorktree(activeWorktreeId)}
                 className="p-1 hover:bg-neutral-700 rounded"
-                title="Focus"
+                title="New terminal"
               >
-                <Maximize2 className="w-3 h-3" />
+                <Plus className="w-3 h-3" />
               </button>,
               <button
                 key="close"
-                onClick={() => removePane(id)}
+                onClick={() => removePane(activeWorktreeId, id)}
                 className="p-1 hover:bg-neutral-700 rounded"
                 title="Remove from layout"
               >

@@ -1,23 +1,19 @@
 import { create } from 'zustand'
 import type { MosaicNode, MosaicSplitNode } from 'react-mosaic-component'
 
-const STORAGE_KEY = 'vibetree.mosaicLayout'
+const STORAGE_KEY = 'vibetree.mosaicLayouts'
 
-function loadLayout(): MosaicNode<string> | null {
+function loadLayouts(): Record<string, MosaicNode<string>> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : null
+    return stored ? JSON.parse(stored) : {}
   } catch {
-    return null
+    return {}
   }
 }
 
-function saveLayout(layout: MosaicNode<string> | null): void {
-  if (layout) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(layout))
-  } else {
-    localStorage.removeItem(STORAGE_KEY)
-  }
+function saveLayouts(layouts: Record<string, MosaicNode<string>>): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(layouts))
 }
 
 function createSplitNode(children: MosaicNode<string>[], splitPercentages?: number[]): MosaicSplitNode<string> {
@@ -30,72 +26,112 @@ function createSplitNode(children: MosaicNode<string>[], splitPercentages?: numb
 }
 
 type LayoutStore = {
-  layout: MosaicNode<string> | null
+  activeWorktreeId: string | null
+  layoutsByWorktreeId: Record<string, MosaicNode<string>>
   terminalIdToTitle: Record<string, string>
 
-  setLayout: (layout: MosaicNode<string> | null) => void
-  addPaneForTerminal: (terminalId: string, title: string) => void
-  removePane: (terminalId: string) => void
+  setActiveWorktree: (worktreeId: string | null) => void
+  getCurrentLayout: () => MosaicNode<string> | null
+  setLayoutForWorktree: (worktreeId: string, layout: MosaicNode<string> | null) => void
+  addPaneForTerminal: (worktreeId: string, terminalId: string, title: string) => void
+  removePane: (worktreeId: string, terminalId: string) => void
   setTerminalTitle: (terminalId: string, title: string) => void
 }
 
 export const useLayoutStore = create<LayoutStore>((set, get) => ({
-  layout: loadLayout(),
+  activeWorktreeId: localStorage.getItem('vibetree.activeWorktreeId'),
+  layoutsByWorktreeId: loadLayouts(),
   terminalIdToTitle: {},
 
-  setLayout: (layout) => {
-    saveLayout(layout)
-    set({ layout })
+  setActiveWorktree: (worktreeId) => {
+    set({ activeWorktreeId: worktreeId })
+    if (worktreeId) {
+      localStorage.setItem('vibetree.activeWorktreeId', worktreeId)
+    } else {
+      localStorage.removeItem('vibetree.activeWorktreeId')
+    }
   },
 
-  addPaneForTerminal: (terminalId, title) => {
-    const { layout, terminalIdToTitle } = get()
+  getCurrentLayout: () => {
+    const { activeWorktreeId, layoutsByWorktreeId } = get()
+    if (!activeWorktreeId) return null
+    return layoutsByWorktreeId[activeWorktreeId] ?? null
+  },
 
+  setLayoutForWorktree: (worktreeId, layout) => {
+    set((state) => {
+      const newLayouts = { ...state.layoutsByWorktreeId }
+      if (layout) {
+        newLayouts[worktreeId] = layout
+      } else {
+        delete newLayouts[worktreeId]
+      }
+      saveLayouts(newLayouts)
+      return { layoutsByWorktreeId: newLayouts }
+    })
+  },
+
+  addPaneForTerminal: (worktreeId, terminalId, title) => {
+    const { layoutsByWorktreeId, terminalIdToTitle } = get()
     const newTitleMap = { ...terminalIdToTitle, [terminalId]: title }
 
-    if (!layout) {
-      set({ layout: terminalId, terminalIdToTitle: newTitleMap })
-      saveLayout(terminalId)
+    const currentLayout = layoutsByWorktreeId[worktreeId] ?? null
+
+    if (!currentLayout) {
+      const newLayouts = { ...layoutsByWorktreeId, [worktreeId]: terminalId }
+      saveLayouts(newLayouts)
+      set({ layoutsByWorktreeId: newLayouts, terminalIdToTitle: newTitleMap })
       return
     }
 
-    if (typeof layout === 'string') {
-      if (layout === terminalId) {
+    if (typeof currentLayout === 'string') {
+      if (currentLayout === terminalId) {
         set({ terminalIdToTitle: newTitleMap })
         return
       }
-      const newLayout = createSplitNode([layout, terminalId], [50, 50])
-      set({ layout: newLayout, terminalIdToTitle: newTitleMap })
-      saveLayout(newLayout)
+      const newLayout = createSplitNode([currentLayout, terminalId], [50, 50])
+      const newLayouts = { ...layoutsByWorktreeId, [worktreeId]: newLayout }
+      saveLayouts(newLayouts)
+      set({ layoutsByWorktreeId: newLayouts, terminalIdToTitle: newTitleMap })
       return
     }
 
-    const containsTerminal = JSON.stringify(layout).includes(`"${terminalId}"`)
+    const containsTerminal = JSON.stringify(currentLayout).includes(`"${terminalId}"`)
     if (containsTerminal) {
       set({ terminalIdToTitle: newTitleMap })
       return
     }
 
-    const newLayout = createSplitNode([layout, terminalId], [70, 30])
-    set({ layout: newLayout, terminalIdToTitle: newTitleMap })
-    saveLayout(newLayout)
+    const newLayout = createSplitNode([currentLayout, terminalId], [70, 30])
+    const newLayouts = { ...layoutsByWorktreeId, [worktreeId]: newLayout }
+    saveLayouts(newLayouts)
+    set({ layoutsByWorktreeId: newLayouts, terminalIdToTitle: newTitleMap })
   },
 
-  removePane: (terminalId) => {
-    const { layout } = get()
-    if (!layout) return
+  removePane: (worktreeId, terminalId) => {
+    const { layoutsByWorktreeId } = get()
+    const currentLayout = layoutsByWorktreeId[worktreeId]
+    if (!currentLayout) return
 
-    if (typeof layout === 'string') {
-      if (layout === terminalId) {
-        set({ layout: null })
-        saveLayout(null)
+    if (typeof currentLayout === 'string') {
+      if (currentLayout === terminalId) {
+        const newLayouts = { ...layoutsByWorktreeId }
+        delete newLayouts[worktreeId]
+        saveLayouts(newLayouts)
+        set({ layoutsByWorktreeId: newLayouts })
       }
       return
     }
 
-    const newLayout = removeNodeFromTree(layout, terminalId)
-    set({ layout: newLayout })
-    saveLayout(newLayout)
+    const newLayout = removeNodeFromTree(currentLayout, terminalId)
+    const newLayouts = { ...layoutsByWorktreeId }
+    if (newLayout) {
+      newLayouts[worktreeId] = newLayout
+    } else {
+      delete newLayouts[worktreeId]
+    }
+    saveLayouts(newLayouts)
+    set({ layoutsByWorktreeId: newLayouts })
   },
 
   setTerminalTitle: (terminalId, title) => {
