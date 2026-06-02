@@ -14,7 +14,11 @@ import type { createProjectRepository } from '../../db/repositories/project.repo
 import type { createWorktreeRepository } from '../../db/repositories/worktree.repository.js'
 import type { createTerminalRepository } from '../../db/repositories/terminal.repository.js'
 import type { AppConfig } from '../../config.js'
-import type { ReturnType<typeof createPtyManager> } from '../pty/pty.manager.js'
+import type { PtyManager } from '../pty/pty.manager.js'
+
+type ProjectRepo = ReturnType<typeof createProjectRepository>
+type WorktreeRepo = ReturnType<typeof createWorktreeRepository>
+type TerminalRepo = ReturnType<typeof createTerminalRepository>
 
 function defaultTerminalTitle(
   project: Project,
@@ -39,11 +43,13 @@ function buildTerminalEnv(project: Project, worktree: Worktree): Record<string, 
   }
 }
 
+export type TerminalService = ReturnType<typeof createTerminalService>
+
 export function createTerminalService(
-  projectRepo: ReturnType<typeof createProjectRepository>,
-  worktreeRepo: ReturnType<typeof createWorktreeRepository>,
-  terminalRepo: ReturnType<typeof createTerminalRepository>,
-  ptyManager: ReturnType<typeof createPtyManager>,
+  projectRepo: ProjectRepo,
+  worktreeRepo: WorktreeRepo,
+  terminalRepo: TerminalRepo,
+  ptyManager: PtyManager,
   config: AppConfig
 ) {
   return {

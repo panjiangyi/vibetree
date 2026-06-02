@@ -1,5 +1,6 @@
 import type { IPty } from 'node-pty'
 import type WebSocket from 'ws'
+import type { RingBuffer } from './ring-buffer.js'
 
 export type PtyRuntimeSession = {
   terminalId: string

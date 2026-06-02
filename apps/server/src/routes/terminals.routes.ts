@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import type { ReturnType<typeof createTerminalService> } from '../modules/terminals/terminal.service.js'
+import type { TerminalService } from '../modules/terminals/terminal.service.js'
 
 const createTerminalSchema = z.object({
   shell: z.string().optional(),
@@ -15,7 +15,7 @@ const updateTerminalSchema = z.object({
 
 export async function registerTerminalRoutes(
   app: FastifyInstance,
-  terminalService: ReturnType<typeof createTerminalService>
+  terminalService: TerminalService
 ) {
   app.get('/api/terminals', async () => {
     return terminalService.listTerminals()

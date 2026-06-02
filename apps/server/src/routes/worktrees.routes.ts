@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import type { ReturnType<typeof createWorktreeService> } from '../modules/worktrees/worktree.service.js'
+import type { WorktreeService } from '../modules/worktrees/worktree.service.js'
 
 const createWorktreeSchema = z.object({
   branch: z.string().min(1),
@@ -11,7 +11,7 @@ const createWorktreeSchema = z.object({
 
 export async function registerWorktreeRoutes(
   app: FastifyInstance,
-  worktreeService: ReturnType<typeof createWorktreeService>
+  worktreeService: WorktreeService
 ) {
   app.get('/api/projects/:projectId/worktrees', async (request) => {
     const { projectId } = request.params as { projectId: string }

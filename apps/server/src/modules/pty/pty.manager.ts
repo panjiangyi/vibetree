@@ -10,6 +10,8 @@ function sendWs(ws: WebSocket, data: unknown): void {
   }
 }
 
+export type PtyManager = ReturnType<typeof createPtyManager>
+
 export function createPtyManager() {
   const sessions = new Map<string, PtyRuntimeSession>()
 

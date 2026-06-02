@@ -4,7 +4,7 @@ type DialogType = 'addProject' | 'createWorktree' | 'removeWorktree' | 'settings
 
 type UiStore = {
   activeDialog: DialogType
-  activeDialogData: Record<string, unknown> | null
+  activeDialogData: Record<string, unknown> | undefined
   expandedProjectIds: Set<string>
   sidebarWidth: number
 
@@ -16,16 +16,16 @@ type UiStore = {
 
 export const useUiStore = create<UiStore>((set) => ({
   activeDialog: null,
-  activeDialogData: null,
+  activeDialogData: undefined,
   expandedProjectIds: new Set(),
   sidebarWidth: 280,
 
-  openDialog: (dialog, data = null) => {
+  openDialog: (dialog, data) => {
     set({ activeDialog: dialog, activeDialogData: data })
   },
 
   closeDialog: () => {
-    set({ activeDialog: null, activeDialogData: null })
+    set({ activeDialog: null, activeDialogData: undefined })
   },
 
   toggleProjectExpanded: (projectId: string) => {

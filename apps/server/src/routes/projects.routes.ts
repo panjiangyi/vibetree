@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { AppError } from '../utils/app-error.js'
-import type { ReturnType<typeof createProjectService> } from '../modules/projects/project.service.js'
+import type { ProjectService } from '../modules/projects/project.service.js'
 
 const createProjectSchema = z.object({
   repoPath: z.string().min(1),
@@ -11,7 +11,7 @@ const createProjectSchema = z.object({
 
 export async function registerProjectRoutes(
   app: FastifyInstance,
-  projectService: ReturnType<typeof createProjectService>
+  projectService: ProjectService
 ) {
   app.get('/api/projects', async () => {
     return projectService.listProjects()

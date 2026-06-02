@@ -1,16 +1,15 @@
 import type { FastifyInstance } from 'fastify'
 import type WebSocket from 'ws'
 import { sendWs, parseWsMessage } from './protocol.js'
-import type { ReturnType<typeof createTerminalService> } from '../modules/terminals/terminal.service.js'
-import type { ReturnType<typeof createPtyManager> } from '../modules/pty/pty.manager.js'
+import type { TerminalService } from '../modules/terminals/terminal.service.js'
+import type { PtyManager } from '../modules/pty/pty.manager.js'
 
 export function registerTerminalWebSocket(
   app: FastifyInstance,
-  terminalService: ReturnType<typeof createTerminalService>,
-  ptyManager: ReturnType<typeof createPtyManager>
+  terminalService: TerminalService,
+  ptyManager: PtyManager
 ) {
-  app.get('/ws/terminal', { websocket: true }, (connection) => {
-    const ws = connection.socket as WebSocket
+  app.get('/ws/terminal', { websocket: true }, (ws: WebSocket) => {
 
     ws.on('message', async (raw) => {
       try {

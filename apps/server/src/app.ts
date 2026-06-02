@@ -70,11 +70,12 @@ export async function buildApp(config: AppConfig) {
       return
     }
 
-    if (error.validation) {
+    const err = error as { validation?: unknown; message?: string }
+    if (err.validation) {
       reply.status(400).send({
         error: {
           code: 'VALIDATION_ERROR',
-          message: error.message,
+          message: err.message ?? 'Validation error',
         },
       })
       return
@@ -100,7 +101,8 @@ export async function buildApp(config: AppConfig) {
   // Serve static files in production
   const webDistPath = path.resolve(import.meta.dirname, '../../web/dist')
   if (fs.existsSync(webDistPath)) {
-    await app.register(import('@fastify/static'), {
+    const fastifyStatic = await import('@fastify/static')
+    await app.register(fastifyStatic.default, {
       root: webDistPath,
       prefix: '/',
     })
@@ -116,7 +118,7 @@ export async function buildApp(config: AppConfig) {
         })
         return
       }
-      reply.sendFile('index.html')
+      return reply.sendFile('index.html')
     })
   }
 

@@ -17,6 +17,10 @@ import type { createProjectRepository } from '../../db/repositories/project.repo
 import type { createWorktreeRepository } from '../../db/repositories/worktree.repository.js'
 import type { createTerminalRepository } from '../../db/repositories/terminal.repository.js'
 
+type ProjectRepo = ReturnType<typeof createProjectRepository>
+type WorktreeRepo = ReturnType<typeof createWorktreeRepository>
+type TerminalRepo = ReturnType<typeof createTerminalRepository>
+
 function getWorktreeName(info: { path: string; branch: string | null }, project: { repoPath: string }): string {
   if (normalizePath(info.path) === normalizePath(project.repoPath)) {
     return 'main'
@@ -27,10 +31,12 @@ function getWorktreeName(info: { path: string; branch: string | null }, project:
   return info.path.split('/').pop() ?? 'unknown'
 }
 
+export type WorktreeService = ReturnType<typeof createWorktreeService>
+
 export function createWorktreeService(
-  projectRepo: ReturnType<typeof createProjectRepository>,
-  worktreeRepo: ReturnType<typeof createWorktreeRepository>,
-  terminalRepo: ReturnType<typeof createTerminalRepository>
+  projectRepo: ProjectRepo,
+  worktreeRepo: WorktreeRepo,
+  terminalRepo: TerminalRepo
 ) {
   return {
     async syncProjectWorktrees(projectId: string): Promise<void> {
