@@ -19,5 +19,12 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "test:e2e": "pnpm --filter @vibetree/server test:e2e"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "node-pty",
+      "esbuild"
+    ]
   }
 }
