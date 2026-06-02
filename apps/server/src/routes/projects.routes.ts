@@ -7,6 +7,15 @@ const createProjectSchema = z.object({
   repoPath: z.string().min(1),
   worktreeBasePath: z.string().optional(),
   name: z.string().optional(),
+  mainBranch: z.string().optional(),
+  setupScript: z.string().optional(),
+})
+
+const updateProjectSchema = z.object({
+  name: z.string().optional(),
+  mainBranch: z.string().optional(),
+  setupScript: z.string().nullable().optional(),
+  worktreeBasePath: z.string().optional(),
 })
 
 export async function registerProjectRoutes(
@@ -22,6 +31,17 @@ export async function registerProjectRoutes(
     const project = await projectService.createProject(input)
     reply.status(201)
     return project
+  })
+
+  app.patch('/api/projects/:projectId', async (request) => {
+    const { projectId } = request.params as { projectId: string }
+    const input = updateProjectSchema.parse(request.body)
+    return projectService.updateProject(projectId, input)
+  })
+
+  app.get('/api/projects/:projectId/branches', async (request) => {
+    const { projectId } = request.params as { projectId: string }
+    return projectService.listBranches(projectId)
   })
 
   app.delete('/api/projects/:projectId', async (request) => {

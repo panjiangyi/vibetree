@@ -5,7 +5,7 @@ import type { WorktreeService } from '../modules/worktrees/worktree.service.js'
 const createWorktreeSchema = z.object({
   branch: z.string().min(1),
   baseRef: z.string().min(1),
-  path: z.string().min(1),
+  path: z.string().optional(),
   name: z.string().optional(),
 })
 

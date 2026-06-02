@@ -9,6 +9,8 @@ const ALLOWED_COMMANDS = [
   'rev-parse',
   'show-ref',
   'branch',
+  'for-each-ref',
+  'symbolic-ref',
 ]
 
 export async function runGit(args: string[], cwd: string): Promise<string> {
@@ -90,4 +92,43 @@ export async function removeWorktree(input: {
   path: string
 }): Promise<void> {
   await runGit(['worktree', 'remove', input.path], input.repoPath)
+}
+
+export async function listBranches(repoPath: string): Promise<{ local: string[]; remote: string[] }> {
+  const stdout = await runGit(
+    ['for-each-ref', '--format=%(refname:short)', 'refs/heads', 'refs/remotes'],
+    repoPath
+  )
+
+  const local: string[] = []
+  const remote: string[] = []
+
+  for (const line of stdout.split('\n')) {
+    const ref = line.trim()
+    if (!ref) continue
+    if (ref.startsWith('remotes/')) {
+      remote.push(ref.replace('remotes/', ''))
+    } else {
+      local.push(ref)
+    }
+  }
+
+  return { local, remote }
+}
+
+export async function detectDefaultBranch(repoPath: string): Promise<string> {
+  try {
+    const stdout = await runGit(['symbolic-ref', 'refs/remotes/origin/HEAD'], repoPath)
+    return stdout.trim().replace('refs/remotes/origin/', '')
+  } catch {
+    if (await branchExists(repoPath, 'main')) return 'main'
+    if (await branchExists(repoPath, 'master')) return 'master'
+
+    try {
+      const stdout = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath)
+      return stdout.trim()
+    } catch {
+      return 'main'
+    }
+  }
 }

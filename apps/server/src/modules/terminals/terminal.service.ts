@@ -203,5 +203,9 @@ export function createTerminalService(
 
       return terminalRepo.findById(id)!
     },
+
+    writeToTerminal(id: string, data: string): void {
+      ptyManager.write(id, data)
+    },
   }
 }

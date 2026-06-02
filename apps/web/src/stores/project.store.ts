@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Project, Worktree, CreateProjectInput, CreateWorktreeInput } from '@vibetree/shared'
+import type { Project, Worktree, CreateProjectInput, CreateWorktreeInput, UpdateProjectInput } from '@vibetree/shared'
 import * as projectsApi from '../api/projects.api.js'
 import * as worktreesApi from '../api/worktrees.api.js'
 
@@ -12,7 +12,9 @@ type ProjectStore = {
   loadProjects: () => Promise<void>
   loadProjectWorktrees: (projectId: string) => Promise<void>
   addProject: (input: CreateProjectInput) => Promise<void>
+  updateProject: (projectId: string, input: UpdateProjectInput) => Promise<void>
   refreshProject: (projectId: string) => Promise<void>
+  listBranches: (projectId: string) => Promise<{ local: string[]; remote: string[] }>
   createWorktree: (projectId: string, input: CreateWorktreeInput) => Promise<Worktree>
   removeWorktree: (worktreeId: string) => Promise<void>
 }
@@ -67,6 +69,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
 
+  updateProject: async (projectId: string, input: UpdateProjectInput) => {
+    set({ loading: true, error: null })
+    try {
+      const project = await projectsApi.updateProject(projectId, input)
+      set((state) => ({
+        projects: state.projects.map((p) => (p.id === projectId ? project : p)),
+        loading: false,
+      }))
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false })
+      throw error
+    }
+  },
+
   refreshProject: async (projectId: string) => {
     try {
       await projectsApi.refreshProject(projectId)
@@ -75,6 +91,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       set({ error: (error as Error).message })
       throw error
     }
+  },
+
+  listBranches: async (projectId: string) => {
+    return projectsApi.listBranches(projectId)
   },
 
   createWorktree: async (projectId: string, input: CreateWorktreeInput) => {

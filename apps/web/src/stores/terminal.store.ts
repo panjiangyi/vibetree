@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { TerminalSession, CreateTerminalInput } from '@vibetree/shared'
 import * as terminalsApi from '../api/terminals.api.js'
+import { useLayoutStore } from './layout.store.js'
 
 type TerminalStore = {
   terminals: TerminalSession[]
@@ -55,12 +56,14 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
 
     if (running[0]) {
       get().setActiveTerminal(running[0].id)
+      useLayoutStore.getState().addPaneForTerminal(running[0].id, running[0].title)
       return
     }
 
     // Create new terminal
     const terminal = await get().createTerminal(worktreeId)
     get().setActiveTerminal(terminal.id)
+    useLayoutStore.getState().addPaneForTerminal(terminal.id, terminal.title)
   },
 
   createTerminal: async (worktreeId: string, input: CreateTerminalInput = {}) => {
@@ -98,6 +101,8 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
 
         return { terminals, activeTerminalId }
       })
+
+      useLayoutStore.getState().removePane(terminalId)
     } catch (error) {
       set({ error: (error as Error).message })
       throw error
@@ -110,6 +115,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       set((state) => ({
         terminals: state.terminals.map((t) => (t.id === terminalId ? terminal : t)),
       }))
+      useLayoutStore.getState().setTerminalTitle(terminalId, title)
     } catch (error) {
       set({ error: (error as Error).message })
       throw error

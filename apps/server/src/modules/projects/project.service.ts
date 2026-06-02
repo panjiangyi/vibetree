@@ -1,7 +1,7 @@
 import path from 'node:path'
 import fs from 'node:fs'
 import { nanoid } from 'nanoid'
-import type { Project, CreateProjectInput } from '@vibetree/shared'
+import type { Project, CreateProjectInput, UpdateProjectInput } from '@vibetree/shared'
 import * as git from '../git/git.service.js'
 import { normalizePath } from '../security/path-safety.js'
 import { AppError, PROJECT_EXISTS, INVALID_GIT_REPO, PROJECT_NOT_FOUND, PROJECT_HAS_RUNNING_TERMINALS } from '../../utils/app-error.js'
@@ -45,12 +45,16 @@ export function createProjectService(
         throw new AppError(PROJECT_EXISTS, 'Project already exists')
       }
 
+      const mainBranch = input.mainBranch || await git.detectDefaultBranch(repoRoot)
+
       const now = new Date().toISOString()
       const project: Project = {
         id: `proj_${nanoid()}`,
         name: input.name ?? path.basename(repoRoot),
         repoPath: normalizePath(repoRoot),
         worktreeBasePath: input.worktreeBasePath ?? defaultWorktreeBasePath(repoRoot),
+        mainBranch,
+        setupScript: input.setupScript ?? null,
         createdAt: now,
         updatedAt: now,
       }
@@ -71,6 +75,25 @@ export function createProjectService(
         throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
       }
       return project
+    },
+
+    updateProject(id: string, input: UpdateProjectInput): Project {
+      const project = projectRepo.findById(id)
+      if (!project) {
+        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
+      }
+
+      projectRepo.update(id, input)
+      return projectRepo.findById(id)!
+    },
+
+    async listBranches(id: string): Promise<{ local: string[]; remote: string[] }> {
+      const project = projectRepo.findById(id)
+      if (!project) {
+        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
+      }
+
+      return git.listBranches(project.repoPath)
     },
 
     async deleteProject(id: string): Promise<void> {

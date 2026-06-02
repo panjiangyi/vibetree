@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronDown, RefreshCw, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, RefreshCw, Trash2, Plus, Settings } from 'lucide-react'
 import type { Project, Worktree } from '@vibetree/shared'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
@@ -13,6 +13,7 @@ export function ProjectItem({ project, worktrees }: Props) {
   const expandedProjectIds = useUiStore((s) => s.expandedProjectIds)
   const toggleProjectExpanded = useUiStore((s) => s.toggleProjectExpanded)
   const refreshProject = useProjectStore((s) => s.refreshProject)
+  const openDialog = useUiStore((s) => s.openDialog)
 
   const isExpanded = expandedProjectIds.has(project.id)
 
@@ -28,16 +29,38 @@ export function ProjectItem({ project, worktrees }: Props) {
           <ChevronRight className="w-4 h-4 text-neutral-400" />
         )}
         <span className="text-sm font-medium truncate flex-1">{project.name}</span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            refreshProject(project.id)
-          }}
-          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-neutral-700 rounded"
-          title="Refresh"
-        >
-          <RefreshCw className="w-3 h-3" />
-        </button>
+        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              openDialog('createWorktree', { projectId: project.id })
+            }}
+            className="p-1 hover:bg-neutral-700 rounded"
+            title="Create worktree"
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              openDialog('projectSettings', { project })
+            }}
+            className="p-1 hover:bg-neutral-700 rounded"
+            title="Project settings"
+          >
+            <Settings className="w-3 h-3" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              refreshProject(project.id)
+            }}
+            className="p-1 hover:bg-neutral-700 rounded"
+            title="Refresh"
+          >
+            <RefreshCw className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
       {isExpanded && (

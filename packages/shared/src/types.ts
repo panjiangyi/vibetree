@@ -3,6 +3,8 @@ export type Project = {
   name: string
   repoPath: string
   worktreeBasePath: string
+  mainBranch: string
+  setupScript: string | null
   createdAt: string
   updatedAt: string
 }
@@ -11,6 +13,7 @@ export type Worktree = {
   id: string
   projectId: string
   name: string
+  displayName: string | null
   path: string
   branch: string | null
   head: string | null
@@ -48,12 +51,21 @@ export type CreateProjectInput = {
   repoPath: string
   worktreeBasePath?: string
   name?: string
+  mainBranch?: string
+  setupScript?: string
+}
+
+export type UpdateProjectInput = {
+  name?: string
+  mainBranch?: string
+  setupScript?: string | null
+  worktreeBasePath?: string
 }
 
 export type CreateWorktreeInput = {
   branch: string
   baseRef: string
-  path: string
+  path?: string
   name?: string
 }
 

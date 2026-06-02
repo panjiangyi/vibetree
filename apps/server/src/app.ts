@@ -12,10 +12,12 @@ import { createProjectService } from './modules/projects/project.service.js'
 import { createWorktreeService } from './modules/worktrees/worktree.service.js'
 import { createTerminalService } from './modules/terminals/terminal.service.js'
 import { createPtyManager } from './modules/pty/pty.manager.js'
+import { createFsService } from './modules/fs/fs.service.js'
 import { registerHealthRoutes } from './routes/health.routes.js'
 import { registerProjectRoutes } from './routes/projects.routes.js'
 import { registerWorktreeRoutes } from './routes/worktrees.routes.js'
 import { registerTerminalRoutes } from './routes/terminals.routes.js'
+import { registerFsRoutes } from './routes/fs.routes.js'
 import { registerTerminalWebSocket } from './websocket/terminal.ws.js'
 import { AppError } from './utils/app-error.js'
 
@@ -36,13 +38,6 @@ export async function buildApp(config: AppConfig) {
   const ptyManager = createPtyManager()
 
   // Initialize services
-  const worktreeService = createWorktreeService(projectRepo, worktreeRepo, terminalRepo)
-  const projectService = createProjectService(
-    projectRepo,
-    worktreeRepo,
-    terminalRepo,
-    worktreeService.syncProjectWorktrees.bind(worktreeService)
-  )
   const terminalService = createTerminalService(
     projectRepo,
     worktreeRepo,
@@ -50,6 +45,14 @@ export async function buildApp(config: AppConfig) {
     ptyManager,
     config
   )
+  const worktreeService = createWorktreeService(projectRepo, worktreeRepo, terminalRepo, terminalService)
+  const projectService = createProjectService(
+    projectRepo,
+    worktreeRepo,
+    terminalRepo,
+    worktreeService.syncProjectWorktrees.bind(worktreeService)
+  )
+  const fsService = createFsService()
 
   // Mark all running terminals as disconnected on startup
   terminalRepo.markRunningAsDisconnected()
@@ -96,6 +99,7 @@ export async function buildApp(config: AppConfig) {
   await registerProjectRoutes(app, projectService)
   await registerWorktreeRoutes(app, worktreeService)
   await registerTerminalRoutes(app, terminalService)
+  await registerFsRoutes(app, fsService)
   registerTerminalWebSocket(app, terminalService, ptyManager)
 
   // Serve static files in production

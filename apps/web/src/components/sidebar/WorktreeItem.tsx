@@ -1,4 +1,4 @@
-import { GitBranch, Terminal, Trash2, RefreshCw, Plus } from 'lucide-react'
+import { GitBranch, Terminal, Trash2, RefreshCw } from 'lucide-react'
 import type { Worktree } from '@vibetree/shared'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useUiStore } from '../../stores/ui.store.js'
@@ -16,6 +16,8 @@ export function WorktreeItem({ worktree }: Props) {
     (t) => t.worktreeId === worktree.id && t.status === 'running'
   ).length
 
+  const displayName = worktree.displayName || worktree.name
+
   return (
     <div
       className="flex items-center gap-2 px-3 py-1.5 hover:bg-neutral-800/50 cursor-pointer group"
@@ -30,9 +32,9 @@ export function WorktreeItem({ worktree }: Props) {
           ) : (
             <GitBranch className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
           )}
-          <span className="text-sm truncate">{worktree.name}</span>
+          <span className="text-sm truncate">{displayName}</span>
         </div>
-        {worktree.branch && !worktree.isMain && (
+        {worktree.displayName && worktree.branch && !worktree.isMain && (
           <div className="text-xs text-neutral-500 truncate ml-5">
             {worktree.branch}
           </div>
@@ -52,16 +54,6 @@ export function WorktreeItem({ worktree }: Props) {
       </div>
 
       <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            openDialog('createWorktree', { projectId: worktree.projectId })
-          }}
-          className="p-1 hover:bg-neutral-700 rounded"
-          title="Create worktree"
-        >
-          <Plus className="w-3 h-3" />
-        </button>
         {!worktree.isMain && (
           <button
             onClick={(e) => {

@@ -16,10 +16,12 @@ import {
 import type { createProjectRepository } from '../../db/repositories/project.repository.js'
 import type { createWorktreeRepository } from '../../db/repositories/worktree.repository.js'
 import type { createTerminalRepository } from '../../db/repositories/terminal.repository.js'
+import type { createTerminalService } from '../terminals/terminal.service.js'
 
 type ProjectRepo = ReturnType<typeof createProjectRepository>
 type WorktreeRepo = ReturnType<typeof createWorktreeRepository>
 type TerminalRepo = ReturnType<typeof createTerminalRepository>
+type TerminalSvc = ReturnType<typeof createTerminalService>
 
 function getWorktreeName(info: { path: string; branch: string | null }, project: { repoPath: string }): string {
   if (normalizePath(info.path) === normalizePath(project.repoPath)) {
@@ -36,7 +38,8 @@ export type WorktreeService = ReturnType<typeof createWorktreeService>
 export function createWorktreeService(
   projectRepo: ProjectRepo,
   worktreeRepo: WorktreeRepo,
-  terminalRepo: TerminalRepo
+  terminalRepo: TerminalRepo,
+  terminalService: TerminalSvc
 ) {
   return {
     async syncProjectWorktrees(projectId: string): Promise<void> {
@@ -62,6 +65,7 @@ export function createWorktreeService(
           id: existing?.id ?? `wt_${nanoid()}`,
           projectId,
           name: getWorktreeName(info, project),
+          displayName: existing?.displayName ?? null,
           path: info.path,
           branch: info.branch,
           head: info.head,
@@ -94,11 +98,13 @@ export function createWorktreeService(
         throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
       }
 
+      const worktreePath = input.path || `${project.worktreeBasePath}/${input.branch}`
+
       // Validate path is inside worktreeBasePath
-      assertPathInside(project.worktreeBasePath, input.path)
+      assertPathInside(project.worktreeBasePath, worktreePath)
 
       // Check path doesn't exist
-      const existingAtPath = worktreeRepo.findByPath(input.path)
+      const existingAtPath = worktreeRepo.findByPath(worktreePath)
       if (existingAtPath) {
         throw new AppError(WORKTREE_PATH_EXISTS, 'Path already exists')
       }
@@ -119,22 +125,33 @@ export function createWorktreeService(
       await git.createWorktree({
         repoPath: project.repoPath,
         branch: input.branch,
-        path: input.path,
+        path: worktreePath,
         baseRef: input.baseRef,
       })
 
       // Sync to get the new worktree
       await this.syncProjectWorktrees(projectId)
 
-      const newWorktree = worktreeRepo.findByPath(input.path)
+      const newWorktree = worktreeRepo.findByPath(worktreePath)
       if (!newWorktree) {
         throw new AppError('WORKTREE_CREATE_FAILED', 'Failed to create worktree')
       }
 
-      // Mark as created by app
-      worktreeRepo.upsert({ ...newWorktree, createdByApp: true })
+      const displayName = input.name || null
+      worktreeRepo.upsert({ ...newWorktree, createdByApp: true, displayName })
 
-      return { ...newWorktree, createdByApp: true }
+      const result = { ...newWorktree, createdByApp: true, displayName }
+
+      if (project.setupScript) {
+        try {
+          const terminal = terminalService.createTerminal(result.id, { title: 'setup' })
+          terminalService.writeToTerminal(terminal.id, `${project.setupScript}\n`)
+        } catch {
+          // Non-fatal: setup script execution failed
+        }
+      }
+
+      return result
     },
 
     async removeWorktree(worktreeId: string): Promise<void> {

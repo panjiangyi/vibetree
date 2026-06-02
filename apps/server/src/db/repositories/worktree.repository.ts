@@ -5,6 +5,7 @@ type WorktreeRow = {
   id: string
   project_id: string
   name: string
+  display_name: string | null
   path: string
   branch: string | null
   head: string | null
@@ -20,6 +21,7 @@ function rowToWorktree(row: WorktreeRow): Worktree {
     id: row.id,
     projectId: row.project_id,
     name: row.name,
+    displayName: row.display_name,
     path: row.path,
     branch: row.branch,
     head: row.head,
@@ -36,10 +38,11 @@ export function createWorktreeRepository(db: Database.Database) {
   const findByProjectIdStmt = db.prepare('SELECT * FROM worktrees WHERE project_id = ? ORDER BY is_main DESC, name ASC')
   const findByPathStmt = db.prepare('SELECT * FROM worktrees WHERE path = ?')
   const upsertStmt = db.prepare(`
-    INSERT INTO worktrees (id, project_id, name, path, branch, head, is_main, is_dirty, created_by_app, created_at, updated_at)
-    VALUES (@id, @projectId, @name, @path, @branch, @head, @isMain, @isDirty, @createdByApp, @createdAt, @updatedAt)
+    INSERT INTO worktrees (id, project_id, name, display_name, path, branch, head, is_main, is_dirty, created_by_app, created_at, updated_at)
+    VALUES (@id, @projectId, @name, @displayName, @path, @branch, @head, @isMain, @isDirty, @createdByApp, @createdAt, @updatedAt)
     ON CONFLICT(id) DO UPDATE SET
       name = @name,
+      display_name = @displayName,
       path = @path,
       branch = @branch,
       head = @head,
@@ -75,6 +78,7 @@ export function createWorktreeRepository(db: Database.Database) {
         id: worktree.id,
         projectId: worktree.projectId,
         name: worktree.name,
+        displayName: worktree.displayName,
         path: worktree.path,
         branch: worktree.branch,
         head: worktree.head,

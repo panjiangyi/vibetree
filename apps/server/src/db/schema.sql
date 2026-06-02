@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS projects (
   name TEXT NOT NULL,
   repo_path TEXT NOT NULL UNIQUE,
   worktree_base_path TEXT NOT NULL,
+  main_branch TEXT NOT NULL DEFAULT 'main',
+  setup_script TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -13,6 +15,7 @@ CREATE TABLE IF NOT EXISTS worktrees (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
   name TEXT NOT NULL,
+  display_name TEXT,
   path TEXT NOT NULL UNIQUE,
   branch TEXT,
   head TEXT,
