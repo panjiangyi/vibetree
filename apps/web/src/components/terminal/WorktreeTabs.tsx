@@ -1,12 +1,11 @@
 import { useTerminalStore } from '../../stores/terminal.store.js'
-import { useLayoutStore } from '../../stores/layout.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
 import { Plus } from 'lucide-react'
 
 export function WorktreeTabs() {
   const activeWorktreeId = useTerminalStore((s) => s.activeWorktreeId)
   const setActiveWorktree = useTerminalStore((s) => s.setActiveWorktree)
-  const openTerminalForWorktree = useTerminalStore((s) => s.openTerminalForWorktree)
+  const createNewTerminalForWorktree = useTerminalStore((s) => s.createNewTerminalForWorktree)
   const terminals = useTerminalStore((s) => s.terminals)
   const worktreesByProjectId = useProjectStore((s) => s.worktreesByProjectId)
 
@@ -47,7 +46,7 @@ export function WorktreeTabs() {
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                openTerminalForWorktree(worktree.id)
+                createNewTerminalForWorktree(worktree.id)
               }}
               className="p-0.5 hover:bg-neutral-700 rounded"
               title="New terminal"

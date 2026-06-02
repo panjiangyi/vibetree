@@ -11,6 +11,7 @@ type TerminalStore = {
 
   loadTerminals: () => Promise<void>
   openTerminalForWorktree: (worktreeId: string) => Promise<void>
+  createNewTerminalForWorktree: (worktreeId: string) => Promise<void>
   createTerminal: (worktreeId: string, input?: CreateTerminalInput) => Promise<TerminalSession>
   closeTerminal: (terminalId: string) => Promise<void>
   renameTerminal: (terminalId: string, title: string) => Promise<void>
@@ -48,6 +49,12 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       return
     }
 
+    const terminal = await get().createTerminal(worktreeId)
+    useLayoutStore.getState().addPaneForTerminal(worktreeId, terminal.id, terminal.title)
+  },
+
+  createNewTerminalForWorktree: async (worktreeId: string) => {
+    get().setActiveWorktree(worktreeId)
     const terminal = await get().createTerminal(worktreeId)
     useLayoutStore.getState().addPaneForTerminal(worktreeId, terminal.id, terminal.title)
   },
