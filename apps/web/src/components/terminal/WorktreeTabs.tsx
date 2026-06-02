@@ -1,11 +1,12 @@
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useLayoutStore } from '../../stores/layout.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
-import { X } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 export function WorktreeTabs() {
   const activeWorktreeId = useTerminalStore((s) => s.activeWorktreeId)
   const setActiveWorktree = useTerminalStore((s) => s.setActiveWorktree)
+  const openTerminalForWorktree = useTerminalStore((s) => s.openTerminalForWorktree)
   const terminals = useTerminalStore((s) => s.terminals)
   const worktreesByProjectId = useProjectStore((s) => s.worktreesByProjectId)
 
@@ -27,20 +28,33 @@ export function WorktreeTabs() {
         const displayName = worktree.displayName || worktree.name
 
         return (
-          <button
+          <div
             key={worktree.id}
-            onClick={() => setActiveWorktree(worktree.id)}
             className={`
-              flex items-center gap-2 px-3 py-2 text-sm border-r border-neutral-800
-              hover:bg-neutral-800/50 whitespace-nowrap
+              flex items-center gap-1 px-3 py-2 text-sm border-r border-neutral-800
               ${isActive ? 'bg-neutral-800 text-neutral-100' : 'text-neutral-400'}
             `}
           >
-            <span className="truncate max-w-[120px]">{displayName}</span>
-            {terminalCount > 0 && (
-              <span className="text-xs text-green-400">{terminalCount}</span>
-            )}
-          </button>
+            <button
+              onClick={() => setActiveWorktree(worktree.id)}
+              className="flex items-center gap-2 hover:text-neutral-100 whitespace-nowrap"
+            >
+              <span className="truncate max-w-[120px]">{displayName}</span>
+              {terminalCount > 0 && (
+                <span className="text-xs text-green-400">{terminalCount}</span>
+              )}
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                openTerminalForWorktree(worktree.id)
+              }}
+              className="p-0.5 hover:bg-neutral-700 rounded"
+              title="New terminal"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
         )
       })}
     </div>

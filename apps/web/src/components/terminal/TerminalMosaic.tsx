@@ -9,9 +9,9 @@ export function TerminalMosaic() {
   const activeWorktreeId = useLayoutStore((s) => s.activeWorktreeId)
   const layout = useLayoutStore((s) => s.getCurrentLayout())
   const setLayoutForWorktree = useLayoutStore((s) => s.setLayoutForWorktree)
-  const removePane = useLayoutStore((s) => s.removePane)
   const terminalIdToTitle = useLayoutStore((s) => s.terminalIdToTitle)
   const openTerminalForWorktree = useTerminalStore((s) => s.openTerminalForWorktree)
+  const closeTerminal = useTerminalStore((s) => s.closeTerminal)
 
   if (!activeWorktreeId || !layout) {
     return (
@@ -44,9 +44,9 @@ export function TerminalMosaic() {
               </button>,
               <button
                 key="close"
-                onClick={() => removePane(activeWorktreeId, id)}
-                className="p-1 hover:bg-neutral-700 rounded"
-                title="Remove from layout"
+                onClick={() => closeTerminal(id)}
+                className="p-1 hover:bg-red-600 rounded"
+                title="Close terminal"
               >
                 <X className="w-3 h-3" />
               </button>,
