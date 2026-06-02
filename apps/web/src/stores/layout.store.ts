@@ -1,9 +1,9 @@
 import { create } from 'zustand'
-import type { MosaicNode, MosaicSplitNode } from 'react-mosaic-component'
+import type { LayoutItem } from 'react-grid-layout'
 
-const STORAGE_KEY = 'vibetree.mosaicLayouts'
+const STORAGE_KEY = 'vibetree.gridLayouts'
 
-function loadLayouts(): Record<string, MosaicNode<string>> {
+function loadLayouts(): Record<string, LayoutItem[]> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     return stored ? JSON.parse(stored) : {}
@@ -12,27 +12,30 @@ function loadLayouts(): Record<string, MosaicNode<string>> {
   }
 }
 
-function saveLayouts(layouts: Record<string, MosaicNode<string>>): void {
+function saveLayouts(layouts: Record<string, LayoutItem[]>): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(layouts))
 }
 
-function createSplitNode(children: MosaicNode<string>[], splitPercentages?: number[]): MosaicSplitNode<string> {
-  return {
-    type: 'split',
-    direction: 'row',
-    children,
-    splitPercentages,
+function findNextPosition(existingLayout: LayoutItem[]): { x: number; y: number } {
+  if (existingLayout.length === 0) return { x: 0, y: 0 }
+
+  let maxY = 0
+  for (const item of existingLayout) {
+    const bottom = item.y + item.h
+    if (bottom > maxY) maxY = bottom
   }
+
+  return { x: 0, y: maxY }
 }
 
 type LayoutStore = {
   activeWorktreeId: string | null
-  layoutsByWorktreeId: Record<string, MosaicNode<string>>
+  layoutsByWorktreeId: Record<string, LayoutItem[]>
   terminalIdToTitle: Record<string, string>
 
   setActiveWorktree: (worktreeId: string | null) => void
-  getCurrentLayout: () => MosaicNode<string> | null
-  setLayoutForWorktree: (worktreeId: string, layout: MosaicNode<string> | null) => void
+  getCurrentLayout: () => LayoutItem[]
+  setLayoutForWorktree: (worktreeId: string, layout: LayoutItem[]) => void
   addPaneForTerminal: (worktreeId: string, terminalId: string, title: string) => void
   removePane: (worktreeId: string, terminalId: string) => void
   setTerminalTitle: (terminalId: string, title: string) => void
@@ -54,18 +57,13 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
 
   getCurrentLayout: () => {
     const { activeWorktreeId, layoutsByWorktreeId } = get()
-    if (!activeWorktreeId) return null
-    return layoutsByWorktreeId[activeWorktreeId] ?? null
+    if (!activeWorktreeId) return []
+    return layoutsByWorktreeId[activeWorktreeId] ?? []
   },
 
   setLayoutForWorktree: (worktreeId, layout) => {
     set((state) => {
-      const newLayouts = { ...state.layoutsByWorktreeId }
-      if (layout) {
-        newLayouts[worktreeId] = layout
-      } else {
-        delete newLayouts[worktreeId]
-      }
+      const newLayouts = { ...state.layoutsByWorktreeId, [worktreeId]: layout }
       saveLayouts(newLayouts)
       return { layoutsByWorktreeId: newLayouts }
     })
@@ -73,36 +71,27 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
 
   addPaneForTerminal: (worktreeId, terminalId, title) => {
     const { layoutsByWorktreeId, terminalIdToTitle } = get()
+    const currentLayout = layoutsByWorktreeId[worktreeId] ?? []
     const newTitleMap = { ...terminalIdToTitle, [terminalId]: title }
 
-    const currentLayout = layoutsByWorktreeId[worktreeId] ?? null
-
-    if (!currentLayout) {
-      const newLayouts = { ...layoutsByWorktreeId, [worktreeId]: terminalId }
-      saveLayouts(newLayouts)
-      set({ layoutsByWorktreeId: newLayouts, terminalIdToTitle: newTitleMap })
-      return
-    }
-
-    if (typeof currentLayout === 'string') {
-      if (currentLayout === terminalId) {
-        set({ terminalIdToTitle: newTitleMap })
-        return
-      }
-      const newLayout = createSplitNode([currentLayout, terminalId], [50, 50])
-      const newLayouts = { ...layoutsByWorktreeId, [worktreeId]: newLayout }
-      saveLayouts(newLayouts)
-      set({ layoutsByWorktreeId: newLayouts, terminalIdToTitle: newTitleMap })
-      return
-    }
-
-    const containsTerminal = JSON.stringify(currentLayout).includes(`"${terminalId}"`)
-    if (containsTerminal) {
+    const exists = currentLayout.some((item) => item.i === terminalId)
+    if (exists) {
       set({ terminalIdToTitle: newTitleMap })
       return
     }
 
-    const newLayout = createSplitNode([currentLayout, terminalId], [70, 30])
+    const pos = findNextPosition(currentLayout)
+    const newItem: LayoutItem = {
+      i: terminalId,
+      x: pos.x,
+      y: pos.y,
+      w: 6,
+      h: 6,
+      minW: 3,
+      minH: 3,
+    }
+
+    const newLayout = [...currentLayout, newItem]
     const newLayouts = { ...layoutsByWorktreeId, [worktreeId]: newLayout }
     saveLayouts(newLayouts)
     set({ layoutsByWorktreeId: newLayouts, terminalIdToTitle: newTitleMap })
@@ -113,19 +102,9 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     const currentLayout = layoutsByWorktreeId[worktreeId]
     if (!currentLayout) return
 
-    if (typeof currentLayout === 'string') {
-      if (currentLayout === terminalId) {
-        const newLayouts = { ...layoutsByWorktreeId }
-        delete newLayouts[worktreeId]
-        saveLayouts(newLayouts)
-        set({ layoutsByWorktreeId: newLayouts })
-      }
-      return
-    }
-
-    const newLayout = removeNodeFromTree(currentLayout, terminalId)
+    const newLayout = currentLayout.filter((item) => item.i !== terminalId)
     const newLayouts = { ...layoutsByWorktreeId }
-    if (newLayout) {
+    if (newLayout.length > 0) {
       newLayouts[worktreeId] = newLayout
     } else {
       delete newLayouts[worktreeId]
@@ -140,32 +119,3 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     }))
   },
 }))
-
-function removeNodeFromTree(
-  tree: MosaicNode<string>,
-  targetId: string
-): MosaicNode<string> | null {
-  if (typeof tree === 'string') {
-    return tree === targetId ? null : tree
-  }
-
-  if (tree.type === 'tabs') {
-    const newTabs = tree.tabs.filter((t) => t !== targetId)
-    if (newTabs.length === 0) return null
-    if (newTabs.length === 1) return newTabs[0]
-    return { ...tree, tabs: newTabs }
-  }
-
-  const newChildren: MosaicNode<string>[] = []
-  for (const child of tree.children) {
-    const result = removeNodeFromTree(child, targetId)
-    if (result !== null) {
-      newChildren.push(result)
-    }
-  }
-
-  if (newChildren.length === 0) return null
-  if (newChildren.length === 1) return newChildren[0]
-
-  return { ...tree, children: newChildren }
-}

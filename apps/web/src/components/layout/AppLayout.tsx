@@ -1,7 +1,7 @@
 import { Header } from './Header.js'
 import { Sidebar } from '../sidebar/Sidebar.js'
 import { WorktreeTabs } from '../terminal/WorktreeTabs.js'
-import { TerminalMosaic } from '../terminal/TerminalMosaic.js'
+import { TerminalGrid } from '../terminal/TerminalGrid.js'
 import { AddProjectDialog } from '../dialogs/AddProjectDialog.js'
 import { CreateWorktreeDialog } from '../dialogs/CreateWorktreeDialog.js'
 import { RemoveWorktreeDialog } from '../dialogs/RemoveWorktreeDialog.js'
@@ -19,7 +19,7 @@ export function AppLayout() {
         <Sidebar />
         <main className="flex-1 min-w-0 flex flex-col">
           <WorktreeTabs />
-          <TerminalMosaic />
+          <TerminalGrid />
         </main>
       </div>
 
