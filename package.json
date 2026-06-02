@@ -1,0 +1,23 @@
+{
+  "name": "vibetree",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local Git worktree manager with web-based terminals",
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=22.0.0 <23.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:web": "pnpm --filter @vibetree/web dev",
+    "dev:server": "pnpm --filter @vibetree/server dev",
+    "build": "pnpm -r build",
+    "build:shared": "pnpm --filter @vibetree/shared build",
+    "build:web": "pnpm --filter @vibetree/web build",
+    "build:server": "pnpm --filter @vibetree/server build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "test:e2e": "pnpm --filter @vibetree/server test:e2e"
+  }
+}

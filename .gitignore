@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SQLite
+*.sqlite
+*.sqlite-journal
+
+# Logs
+*.log
+logs/
+
+# Vite
+.vite/
+
+# Coverage
+coverage/
+
+# Temporary
+tmp/
+temp/
