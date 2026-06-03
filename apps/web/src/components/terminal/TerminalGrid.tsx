@@ -23,11 +23,20 @@ export function TerminalGrid() {
 
   const handleLayoutChange = useCallback(
     (newLayout: readonly LayoutItem[]) => {
-      if (activeWorktreeId) {
+      if (activeWorktreeId && newLayout.length > 0) {
         setLayoutForWorktree(activeWorktreeId, [...newLayout])
       }
     },
     [activeWorktreeId, setLayoutForWorktree]
+  )
+
+  const handleClose = useCallback(
+    (terminalId: string, e: React.MouseEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      closeTerminal(terminalId)
+    },
+    [closeTerminal]
   )
 
   if (!activeWorktreeId || layout.length === 0) {
@@ -48,29 +57,29 @@ export function TerminalGrid() {
         cols={12}
         rowHeight={30}
         onLayoutChange={handleLayoutChange}
-        draggableHandle=".terminal-drag-handle"
+        draggableHandle=".drag-handle"
         resizeHandles={['se']}
         compactType={null}
         preventCollision={false}
+        margin={[8, 8]}
       >
         {layout.map((item) => (
-          <div key={item.i} className="bg-neutral-900 border border-neutral-700 rounded overflow-hidden flex flex-col">
-            <div className="terminal-drag-handle flex items-center justify-between px-2 py-1 bg-neutral-800 border-b border-neutral-700 cursor-move select-none">
+          <div key={item.i} className="bg-neutral-900 border border-neutral-700 rounded overflow-hidden">
+            <div className="drag-handle flex items-center justify-between px-2 py-1 bg-neutral-800 border-b border-neutral-700 cursor-move select-none">
               <span className="text-xs text-neutral-300 truncate">
                 {terminalIdToTitle[item.i] || item.i}
               </span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  closeTerminal(item.i)
-                }}
-                className="p-0.5 hover:bg-red-600 rounded"
+              <span
+                role="button"
+                onClick={(e) => handleClose(item.i, e)}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="p-0.5 hover:bg-red-600 rounded cursor-pointer"
                 title="Close terminal"
               >
                 <X className="w-3 h-3" />
-              </button>
+              </span>
             </div>
-            <div className="flex-1 min-h-0">
+            <div style={{ height: 'calc(100% - 28px)' }}>
               <TerminalPane terminalId={item.i} />
             </div>
           </div>
