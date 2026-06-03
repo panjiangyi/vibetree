@@ -15,6 +15,7 @@ export async function registerWorktreeRoutes(
 ) {
   app.get('/api/projects/:projectId/worktrees', async (request) => {
     const { projectId } = request.params as { projectId: string }
+    await worktreeService.syncProjectWorktrees(projectId)
     return worktreeService.listWorktrees(projectId)
   })
 

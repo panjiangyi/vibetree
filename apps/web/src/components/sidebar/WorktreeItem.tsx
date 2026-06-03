@@ -27,7 +27,7 @@ export function WorktreeItem({ worktree }: Props) {
         <div className="flex items-center gap-1.5">
           {worktree.isMain ? (
             <span className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">
-              main
+              root
             </span>
           ) : (
             <GitBranch className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />

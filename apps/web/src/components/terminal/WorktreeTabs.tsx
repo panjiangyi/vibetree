@@ -1,11 +1,12 @@
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 
 export function WorktreeTabs() {
   const activeWorktreeId = useTerminalStore((s) => s.activeWorktreeId)
   const setActiveWorktree = useTerminalStore((s) => s.setActiveWorktree)
   const createNewTerminalForWorktree = useTerminalStore((s) => s.createNewTerminalForWorktree)
+  const closeWorktreeTerminals = useTerminalStore((s) => s.closeWorktreeTerminals)
   const terminals = useTerminalStore((s) => s.terminals)
   const worktreesByProjectId = useProjectStore((s) => s.worktreesByProjectId)
 
@@ -52,6 +53,16 @@ export function WorktreeTabs() {
               title="New terminal"
             >
               <Plus className="w-3 h-3" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                closeWorktreeTerminals(worktree.id)
+              }}
+              className="p-0.5 hover:bg-neutral-700 rounded"
+              title="Close tab"
+            >
+              <X className="w-3 h-3" />
             </button>
           </div>
         )

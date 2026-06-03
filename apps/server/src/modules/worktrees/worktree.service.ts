@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { nanoid } from 'nanoid'
 import type { Worktree, CreateWorktreeInput } from '@vibetree/shared'
 import * as git from '../git/git.service.js'
@@ -24,13 +25,17 @@ type TerminalRepo = ReturnType<typeof createTerminalRepository>
 type TerminalSvc = ReturnType<typeof createTerminalService>
 
 function getWorktreeName(info: { path: string; branch: string | null }, project: { repoPath: string }): string {
-  if (normalizePath(info.path) === normalizePath(project.repoPath)) {
-    return 'main'
-  }
   if (info.branch) {
     return info.branch.replace(/[\/\\]/g, '-')
   }
-  return info.path.split('/').pop() ?? 'unknown'
+  const dirname = path.basename(info.path)
+  if (dirname) {
+    return dirname
+  }
+  if (normalizePath(info.path) === normalizePath(project.repoPath)) {
+    return path.basename(project.repoPath) || 'root'
+  }
+  return 'unknown'
 }
 
 export type WorktreeService = ReturnType<typeof createWorktreeService>

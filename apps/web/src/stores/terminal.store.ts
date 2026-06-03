@@ -14,6 +14,7 @@ type TerminalStore = {
   createNewTerminalForWorktree: (worktreeId: string) => Promise<void>
   createTerminal: (worktreeId: string, input?: CreateTerminalInput) => Promise<TerminalSession>
   closeTerminal: (terminalId: string) => Promise<void>
+  closeWorktreeTerminals: (worktreeId: string) => Promise<void>
   renameTerminal: (terminalId: string, title: string) => Promise<void>
   restartTerminal: (terminalId: string) => Promise<void>
   setActiveWorktree: (worktreeId: string | null) => void
@@ -29,6 +30,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const terminals = await terminalsApi.listTerminals()
+      useLayoutStore.getState().reconcileWithTerminals(terminals)
       set({ terminals, loading: false })
     } catch (error) {
       set({ error: (error as Error).message, loading: false })
@@ -75,20 +77,46 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   },
 
   closeTerminal: async (terminalId: string) => {
+    // Resolve the worktree before mutating state. Fall back to the active
+    // worktree so panes that exist only in the persisted layout (e.g. the
+    // backend was restarted) can still be closed.
+    const terminal = get().terminals.find((t) => t.id === terminalId)
+    const worktreeId = terminal?.worktreeId ?? get().activeWorktreeId
+
     try {
       await terminalsApi.deleteTerminal(terminalId)
-      set((state) => ({
-        terminals: state.terminals.filter((t) => t.id !== terminalId),
-      }))
-
-      const terminal = get().terminals.find((t) => t.id === terminalId)
-      if (terminal) {
-        useLayoutStore.getState().removePane(terminal.worktreeId, terminalId)
-      }
     } catch (error) {
+      // The terminal may already be gone on the backend; surface the error but
+      // still remove the pane locally so the close button always works.
       set({ error: (error as Error).message })
-      throw error
     }
+
+    set((state) => ({
+      terminals: state.terminals.filter((t) => t.id !== terminalId),
+    }))
+
+    if (worktreeId) {
+      useLayoutStore.getState().removePane(worktreeId, terminalId)
+    }
+  },
+
+  closeWorktreeTerminals: async (worktreeId: string) => {
+    const { terminals, activeWorktreeId } = get()
+    const visibleWorktreeIds = Array.from(new Set(terminals.map((terminal) => terminal.worktreeId)))
+    const terminalIds = terminals
+      .filter((terminal) => terminal.worktreeId === worktreeId)
+      .map((terminal) => terminal.id)
+
+    if (activeWorktreeId === worktreeId) {
+      const currentIndex = visibleWorktreeIds.indexOf(worktreeId)
+      const fallbackWorktreeId =
+        visibleWorktreeIds[currentIndex + 1] ??
+        visibleWorktreeIds[currentIndex - 1] ??
+        null
+      get().setActiveWorktree(fallbackWorktreeId)
+    }
+
+    await Promise.all(terminalIds.map((terminalId) => get().closeTerminal(terminalId)))
   },
 
   renameTerminal: async (terminalId: string, title: string) => {

@@ -58,7 +58,13 @@ export async function buildApp(config: AppConfig) {
   terminalRepo.markRunningAsDisconnected()
 
   // Register plugins
-  await app.register(cors, { origin: true })
+  // @fastify/cors defaults to `methods: 'GET,HEAD,POST'`, which blocks the
+  // DELETE (close terminal) and PATCH (rename terminal) requests the web app
+  // makes cross-origin from the Vite dev server. Allow the full set explicitly.
+  await app.register(cors, {
+    origin: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  })
   await app.register(websocket)
 
   // Error handler
