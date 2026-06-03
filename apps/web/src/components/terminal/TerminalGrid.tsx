@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { ReactGridLayout, WidthProvider } from 'react-grid-layout/legacy'
 import type { LayoutItem } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
@@ -11,10 +11,15 @@ const GridLayout = WidthProvider(ReactGridLayout)
 
 export function TerminalGrid() {
   const activeWorktreeId = useLayoutStore((s) => s.activeWorktreeId)
-  const layout = useLayoutStore((s) => s.getCurrentLayout())
+  const layoutsByWorktreeId = useLayoutStore((s) => s.layoutsByWorktreeId)
   const setLayoutForWorktree = useLayoutStore((s) => s.setLayoutForWorktree)
   const terminalIdToTitle = useLayoutStore((s) => s.terminalIdToTitle)
   const closeTerminal = useTerminalStore((s) => s.closeTerminal)
+
+  const layout = useMemo(() => {
+    if (!activeWorktreeId) return []
+    return layoutsByWorktreeId[activeWorktreeId] ?? []
+  }, [activeWorktreeId, layoutsByWorktreeId])
 
   const handleLayoutChange = useCallback(
     (newLayout: readonly LayoutItem[]) => {
