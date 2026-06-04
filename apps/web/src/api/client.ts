@@ -1,4 +1,12 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:3767'
+const configuredApiBase = import.meta.env.VITE_API_BASE
+
+export function getApiBase(): string {
+  return localStorage.getItem('vibetree.apiBase') ?? configuredApiBase ?? window.location.origin
+}
+
+export function getDefaultApiBase(): string {
+  return configuredApiBase ?? window.location.origin
+}
 
 export async function apiFetch<T>(
   path: string,
@@ -9,7 +17,7 @@ export async function apiFetch<T>(
     headers.set('Content-Type', 'application/json')
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     ...options,
     headers,
   })

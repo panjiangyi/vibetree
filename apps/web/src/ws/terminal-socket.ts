@@ -1,4 +1,5 @@
 import type { TerminalClientMessage, TerminalServerMessage } from '@vibetree/shared'
+import { getApiBase } from '../api/client.js'
 
 type Listener = (message: TerminalServerMessage) => void
 
@@ -14,7 +15,7 @@ class TerminalSocket {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) return
 
     this.connecting = true
-    const wsBase = import.meta.env.VITE_API_BASE?.replace('http', 'ws') ?? 'ws://127.0.0.1:3767'
+    const wsBase = getApiBase().replace(/^http/, 'ws')
     const url = `${wsBase}/ws/terminal`
 
     this.ws = new WebSocket(url)

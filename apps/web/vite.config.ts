@@ -12,6 +12,10 @@ export default defineConfig(({ mode }) => ({
     'process.env': JSON.stringify({ NODE_ENV: mode, DRAGGABLE_DEBUG: '' }),
   },
   server: {
+    // Bind to all interfaces so the dev server is reachable from other
+    // devices on the LAN (e.g. a phone) without passing `--host` on the CLI,
+    // which `pnpm -r --parallel dev` would also forward to `tsc --watch`.
+    host: true,
     port: 5173,
     proxy: {
       '/api': 'http://127.0.0.1:3767',

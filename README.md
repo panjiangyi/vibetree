@@ -26,21 +26,20 @@ pnpm install
 pnpm dev
 
 # Or start individually
-pnpm dev:web    # Frontend only (http://127.0.0.1:5173)
+pnpm dev:web    # Frontend only (http://127.0.0.1:5173, also binds to LAN)
 pnpm dev:server # Backend only (http://127.0.0.1:3767)
 ```
+
+For development from a phone on the same Wi-Fi, keep `pnpm dev` running and open the LAN URL printed by Vite, for example `http://192.168.1.10:5173`. The frontend proxies `/api` and `/ws` to the local backend.
 
 ## Production Build
 
 ```bash
-# Build all packages
-pnpm build
-
-# Start production server
-pnpm --filter @vibetree/server start
+# Build and start on all network interfaces
+pnpm build-and-start
 ```
 
-The production server serves the frontend at `http://127.0.0.1:3767`.
+The script prints a LAN URL such as `http://192.168.1.10:3767` that can be opened from a phone on the same Wi-Fi. The backend serves the frontend and API from the same origin, so mobile browsers connect back to this computer instead of their own `127.0.0.1`.
 
 ## Testing
 
@@ -65,15 +64,16 @@ VibeTree is a monorepo with three packages:
 
 ## Security
 
-VibeTree is designed as a **local-only tool**:
+VibeTree is designed for trusted local development:
 
 - Listens only on `127.0.0.1` by default
+- `pnpm build-and-start` binds to `0.0.0.0` for same-LAN phone access
 - No authentication or token system
 - No arbitrary command execution API
 - All Git operations go through a whitelist
 - Path operations are sandboxed to worktree directories
 
-**Do NOT expose VibeTree to the network.** It is intended for local development use only.
+**Do not expose VibeTree to public or untrusted networks.** The web app includes access to local project terminals.
 
 ## Configuration
 

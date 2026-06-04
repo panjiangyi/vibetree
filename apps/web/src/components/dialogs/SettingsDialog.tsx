@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Info, Monitor, Moon, Sun } from 'lucide-react'
+import { getApiBase, getDefaultApiBase } from '../../api/client.js'
 import { useUiStore } from '../../stores/ui.store.js'
 import { type ThemeMode, useThemeStore } from '../../stores/theme.store.js'
 
@@ -8,18 +9,21 @@ export function SettingsDialog() {
   const themeMode = useThemeStore((s) => s.themeMode)
   const setThemeMode = useThemeStore((s) => s.setThemeMode)
 
-  const [apiBase, setApiBase] = useState(
-    localStorage.getItem('vibetree.apiBase') ?? 'http://127.0.0.1:3767'
-  )
+  const [apiBase, setApiBase] = useState(getApiBase())
   const [selectedThemeMode, setSelectedThemeMode] = useState<ThemeMode>(themeMode)
 
   const handleSave = () => {
-    const previousApiBase = localStorage.getItem('vibetree.apiBase') ?? 'http://127.0.0.1:3767'
+    const previousApiBase = getApiBase()
+    const nextApiBase = apiBase.trim()
     setThemeMode(selectedThemeMode)
-    localStorage.setItem('vibetree.apiBase', apiBase)
+    if (nextApiBase) {
+      localStorage.setItem('vibetree.apiBase', nextApiBase)
+    } else {
+      localStorage.removeItem('vibetree.apiBase')
+    }
     closeDialog()
 
-    if (previousApiBase !== apiBase) {
+    if (previousApiBase !== getApiBase()) {
       window.location.reload()
     }
   }
@@ -85,15 +89,15 @@ export function SettingsDialog() {
               className="app-input"
             />
             <p className="app-subtle text-xs mt-1">
-              Default: http://127.0.0.1:3767
+              Default: {getDefaultApiBase()}
             </p>
           </div>
 
           <div className="flex items-start gap-2 p-3 app-soft-info rounded">
             <Info className="w-4 h-4 app-accent flex-shrink-0 mt-0.5" />
             <div className="text-xs app-muted">
-              <p>VibeTree is a local-only tool.</p>
-              <p className="mt-1">It listens on 127.0.0.1 by default and should not be exposed to the network.</p>
+              <p>VibeTree can be opened from devices on the same network.</p>
+              <p className="mt-1">Only use this on a trusted LAN because the app exposes local project terminals.</p>
             </div>
           </div>
 
@@ -108,7 +112,7 @@ export function SettingsDialog() {
               onClick={handleSave}
               className="app-button-primary"
             >
-              {apiBase === (localStorage.getItem('vibetree.apiBase') ?? 'http://127.0.0.1:3767') ? 'Save' : 'Save & Reload'}
+              {apiBase.trim() === getApiBase() ? 'Save' : 'Save & Reload'}
             </button>
           </div>
         </div>
