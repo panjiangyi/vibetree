@@ -1,6 +1,7 @@
 import pty from 'node-pty'
 import type { IPty } from 'node-pty'
 import type WebSocket from 'ws'
+import { buildShellLaunchConfig } from './compact-prompt.js'
 import { RingBuffer } from './ring-buffer.js'
 import type { PtyRuntimeSession, CreatePtyInput } from './pty.types.js'
 
@@ -25,7 +26,8 @@ export function createPtyManager() {
     },
 
     create(input: CreatePtyInput): PtyRuntimeSession {
-      const ptyProcess: IPty = pty.spawn(input.shell, [], {
+      const launchConfig = buildShellLaunchConfig(input.shell)
+      const ptyProcess: IPty = pty.spawn(launchConfig.shell, launchConfig.args, {
         name: 'xterm-256color',
         cols: input.cols,
         rows: input.rows,
@@ -33,6 +35,7 @@ export function createPtyManager() {
         env: {
           ...process.env,
           ...input.env,
+          ...launchConfig.env,
           TERM: 'xterm-256color',
           COLORTERM: 'truecolor',
           VIBETREE: '1',

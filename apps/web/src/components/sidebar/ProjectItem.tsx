@@ -7,9 +7,11 @@ import { WorktreeItem } from './WorktreeItem.js'
 type Props = {
   project: Project
   worktrees: Worktree[]
+  mobile?: boolean
+  onWorktreeSelected?: () => void
 }
 
-export function ProjectItem({ project, worktrees }: Props) {
+export function ProjectItem({ project, worktrees, mobile = false, onWorktreeSelected }: Props) {
   const expandedProjectIds = useUiStore((s) => s.expandedProjectIds)
   const toggleProjectExpanded = useUiStore((s) => s.toggleProjectExpanded)
   const refreshProject = useProjectStore((s) => s.refreshProject)
@@ -20,7 +22,7 @@ export function ProjectItem({ project, worktrees }: Props) {
   return (
     <div className="select-none">
       <div
-        className="flex items-center gap-1 px-3 py-1.5 app-hover cursor-pointer group rounded-md mx-1"
+        className={`flex items-center gap-1 px-3 app-hover cursor-pointer group rounded-md mx-1 ${mobile ? 'py-2.5' : 'py-1.5'}`}
         onClick={() => toggleProjectExpanded(project.id)}
       >
         {isExpanded ? (
@@ -29,11 +31,12 @@ export function ProjectItem({ project, worktrees }: Props) {
           <ChevronRight className="w-4 h-4 app-subtle" />
         )}
         <span className="text-sm font-medium truncate flex-1">{project.name}</span>
-        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+        <div className={`${mobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center gap-0.5`}>
           <button
             onClick={(e) => {
               e.stopPropagation()
               openDialog('createWorktree', { projectId: project.id })
+              onWorktreeSelected?.()
             }}
             className="app-icon-button"
             title="Create worktree"
@@ -44,6 +47,7 @@ export function ProjectItem({ project, worktrees }: Props) {
             onClick={(e) => {
               e.stopPropagation()
               openDialog('projectSettings', { project })
+              onWorktreeSelected?.()
             }}
             className="app-icon-button"
             title="Project settings"
@@ -66,7 +70,12 @@ export function ProjectItem({ project, worktrees }: Props) {
       {isExpanded && (
         <div className="ml-4">
           {worktrees.map((worktree) => (
-            <WorktreeItem key={worktree.id} worktree={worktree} />
+            <WorktreeItem
+              key={worktree.id}
+              worktree={worktree}
+              mobile={mobile}
+              onSelected={onWorktreeSelected}
+            />
           ))}
         </div>
       )}

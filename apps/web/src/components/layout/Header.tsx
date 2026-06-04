@@ -1,10 +1,11 @@
-import { Terminal, Plus, RefreshCw, Settings } from 'lucide-react'
+import { Menu, Terminal, Plus, RefreshCw, Settings } from 'lucide-react'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
 
 export function Header() {
   const openDialog = useUiStore((s) => s.openDialog)
+  const toggleMobileSidebar = useUiStore((s) => s.toggleMobileSidebar)
   const terminals = useTerminalStore((s) => s.terminals)
   const projects = useProjectStore((s) => s.projects)
   const refreshProject = useProjectStore((s) => s.refreshProject)
@@ -18,7 +19,15 @@ export function Header() {
   }
 
   return (
-    <header className="h-12 border-b app-panel flex items-center px-4 gap-4">
+    <header className="h-12 border-b app-panel flex items-center px-3 md:px-4 gap-2 md:gap-4">
+      <button
+        onClick={toggleMobileSidebar}
+        className="app-icon-button p-2 md:hidden"
+        aria-label="Open projects menu"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
       <div className="flex items-center gap-2 font-semibold">
         <Terminal className="w-5 h-5 app-success" />
         <span>VibeTree</span>
@@ -26,7 +35,7 @@ export function Header() {
 
       <button
         onClick={() => openDialog('addProject')}
-        className="app-button-secondary flex items-center gap-1 py-1.5"
+        className="app-button-secondary hidden md:flex items-center gap-1 py-1.5"
       >
         <Plus className="w-4 h-4" />
         Add Project
@@ -34,7 +43,7 @@ export function Header() {
 
       <button
         onClick={handleRefreshAll}
-        className="app-button-secondary flex items-center gap-1 py-1.5"
+        className="app-button-secondary hidden md:flex items-center gap-1 py-1.5"
       >
         <RefreshCw className="w-4 h-4" />
         Refresh
@@ -42,9 +51,10 @@ export function Header() {
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-2 text-sm app-muted">
+      <div className="flex items-center gap-1.5 text-xs md:text-sm app-muted">
         <Terminal className="w-4 h-4" />
-        <span>Running: {runningCount}</span>
+        <span className="hidden sm:inline">Running: </span>
+        <span>{runningCount}</span>
       </div>
 
       <button

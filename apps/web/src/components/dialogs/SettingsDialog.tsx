@@ -26,7 +26,7 @@ export function SettingsDialog() {
 
   return (
     <div className="app-dialog-overlay">
-      <div className="app-dialog w-[420px]">
+      <div className="app-dialog app-dialog-mobile max-w-[420px]">
         <div className="app-dialog-header">
           <h2 className="text-lg font-medium">Settings</h2>
           <button onClick={closeDialog} className="app-icon-button">
@@ -97,7 +97,7 @@ export function SettingsDialog() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <button
               onClick={closeDialog}
               className="app-button-secondary"

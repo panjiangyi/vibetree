@@ -8,6 +8,7 @@ import { useThemeStore } from '../../stores/theme.store.js'
 
 type Props = {
   terminalId: string
+  fontSize?: number
 }
 
 function copyText(text: string): void {
@@ -33,7 +34,7 @@ function fallbackCopyText(text: string): void {
   document.body.removeChild(textarea)
 }
 
-export function XtermView({ terminalId }: Props) {
+export function XtermView({ terminalId, fontSize = 14 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -64,7 +65,7 @@ export function XtermView({ terminalId }: Props) {
 
     const term = new Terminal({
       cursorBlink: true,
-      fontSize: 14,
+      fontSize,
       fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
       theme,
       scrollback: 10000,
@@ -185,7 +186,7 @@ export function XtermView({ terminalId }: Props) {
       termRef.current = null
       fitAddonRef.current = null
     }
-  }, [resolvedTheme, terminalId])
+  }, [fontSize, resolvedTheme, terminalId])
 
-  return <div ref={containerRef} className="h-full w-full" />
+  return <div ref={containerRef} className="h-full min-h-0 w-full overflow-hidden" />
 }

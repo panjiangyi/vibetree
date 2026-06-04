@@ -49,7 +49,7 @@ export function RemoveWorktreeDialog() {
 
   return (
     <div className="app-dialog-overlay">
-      <div className="app-dialog w-[420px]">
+      <div className="app-dialog app-dialog-mobile max-w-[420px]">
         <div className="app-dialog-header">
           <h2 className="text-lg font-medium">Remove Worktree</h2>
           <button onClick={closeDialog} className="app-icon-button">
@@ -62,7 +62,7 @@ export function RemoveWorktreeDialog() {
             <AlertTriangle className="w-5 h-5 app-warning flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium">{worktree.name}</p>
-              <p className="text-sm app-muted mt-1">{worktree.path}</p>
+              <p className="text-sm app-muted mt-1 break-all">{worktree.path}</p>
             </div>
           </div>
 
@@ -82,7 +82,7 @@ export function RemoveWorktreeDialog() {
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <button
               onClick={closeDialog}
               className="app-button-secondary"

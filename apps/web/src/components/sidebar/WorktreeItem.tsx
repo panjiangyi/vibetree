@@ -5,9 +5,11 @@ import { useUiStore } from '../../stores/ui.store.js'
 
 type Props = {
   worktree: Worktree
+  mobile?: boolean
+  onSelected?: () => void
 }
 
-export function WorktreeItem({ worktree }: Props) {
+export function WorktreeItem({ worktree, mobile = false, onSelected }: Props) {
   const openTerminalForWorktree = useTerminalStore((s) => s.openTerminalForWorktree)
   const terminals = useTerminalStore((s) => s.terminals)
   const openDialog = useUiStore((s) => s.openDialog)
@@ -17,11 +19,15 @@ export function WorktreeItem({ worktree }: Props) {
   ).length
 
   const displayName = worktree.displayName || worktree.name
+  const handleOpen = async () => {
+    await openTerminalForWorktree(worktree.id)
+    onSelected?.()
+  }
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 app-hover cursor-pointer group rounded-md mx-1"
-      onClick={() => openTerminalForWorktree(worktree.id)}
+      className={`flex items-center gap-2 px-3 app-hover cursor-pointer group rounded-md mx-1 ${mobile ? 'py-2.5' : 'py-1.5'}`}
+      onClick={handleOpen}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
@@ -53,11 +59,12 @@ export function WorktreeItem({ worktree }: Props) {
         )}
       </div>
 
-      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+      <div className={`${mobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center gap-0.5`}>
         <button
           onClick={(e) => {
             e.stopPropagation()
             openDialog('editWorktreeAlias', { worktree })
+            onSelected?.()
           }}
           className="app-icon-button"
           title="Edit alias"
@@ -69,6 +76,7 @@ export function WorktreeItem({ worktree }: Props) {
             onClick={(e) => {
               e.stopPropagation()
               openDialog('removeWorktree', { worktree })
+              onSelected?.()
             }}
             className="app-icon-button"
             title="Remove worktree"

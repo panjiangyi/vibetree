@@ -80,6 +80,7 @@ body {
 @layer components {
   .app-root {
     @apply flex h-screen w-screen flex-col;
+    height: 100dvh;
   }
 
   .app-panel {
@@ -153,7 +154,7 @@ body {
   }
 
   .app-dialog-overlay {
-    @apply fixed inset-0 z-50 flex items-center justify-center;
+    @apply fixed inset-0 z-50 flex items-center justify-center p-2;
     background: var(--color-overlay);
     backdrop-filter: blur(4px);
   }
@@ -223,5 +224,13 @@ body {
 
   .app-disabled {
     @apply cursor-not-allowed opacity-50;
+  }
+
+  .app-dialog-mobile {
+    @apply w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-auto;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }

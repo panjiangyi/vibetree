@@ -57,7 +57,7 @@ export function DirectoryPicker({ onSelect, onClose }: Props) {
 
   return (
     <div className="app-dialog-overlay">
-      <div className="app-dialog w-[560px] max-h-[80vh] flex flex-col">
+      <div className="app-dialog app-dialog-mobile max-w-[560px] flex flex-col">
         <div className="app-dialog-header">
           <h2 className="text-lg font-medium">Select Directory</h2>
           <button onClick={onClose} className="app-icon-button">
@@ -85,7 +85,7 @@ export function DirectoryPicker({ onSelect, onClose }: Props) {
           ))}
         </div>
 
-        <div className="flex-1 overflow-auto p-2 min-h-[300px]">
+        <div className="flex-1 overflow-auto p-2 min-h-[220px]">
           {loading ? (
             <div className="flex items-center justify-center h-full app-subtle">
               Loading...
@@ -128,7 +128,7 @@ export function DirectoryPicker({ onSelect, onClose }: Props) {
           <div className="text-sm app-muted mb-3 truncate">
             Selected: <span>{currentPath}</span>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <button
               onClick={onClose}
               className="app-button-secondary"

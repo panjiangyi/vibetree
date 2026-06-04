@@ -31,7 +31,7 @@ export function WorktreeTabs() {
           <div
             key={worktree.id}
             className={`
-              flex items-center gap-1 px-3 py-2 text-sm border-r
+              flex items-center gap-1 px-3 py-2.5 md:py-2 text-sm border-r
               ${isActive ? 'app-panel-strong' : 'app-muted'}
             `}
           >
@@ -49,7 +49,7 @@ export function WorktreeTabs() {
                 e.stopPropagation()
                 createNewTerminalForWorktree(worktree.id)
               }}
-              className="app-icon-button p-0.5"
+              className="app-icon-button p-1 md:p-0.5"
               title="New terminal"
             >
               <Plus className="w-3 h-3" />
@@ -59,7 +59,7 @@ export function WorktreeTabs() {
                 e.stopPropagation()
                 closeWorktreeTerminals(worktree.id)
               }}
-              className="app-icon-button p-0.5"
+              className="app-icon-button p-1 md:p-0.5"
               title="Close tab"
             >
               <X className="w-3 h-3" />

@@ -1,15 +1,22 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReactGridLayout } from 'react-grid-layout/legacy'
 import type { LayoutItem } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
-import { X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { GRID_COLS, GRID_ROWS, useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
+import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { TerminalPane } from './TerminalPane.js'
 
 const MARGIN = 8
 
 export function TerminalGrid() {
+  const isMobile = useMediaQuery('(max-width: 767px)')
+  if (isMobile) return <MobileTerminalFocus />
+  return <DesktopTerminalGrid />
+}
+
+function DesktopTerminalGrid() {
   const activeWorktreeId = useLayoutStore((s) => s.activeWorktreeId)
   const layoutsByWorktreeId = useLayoutStore((s) => s.layoutsByWorktreeId)
   const setLayoutForWorktree = useLayoutStore((s) => s.setLayoutForWorktree)
@@ -125,6 +132,105 @@ export function TerminalGrid() {
           ))}
         </ReactGridLayout>
       )}
+    </div>
+  )
+}
+
+function MobileTerminalFocus() {
+  const activeWorktreeId = useLayoutStore((s) => s.activeWorktreeId)
+  const layoutsByWorktreeId = useLayoutStore((s) => s.layoutsByWorktreeId)
+  const terminalIdToTitle = useLayoutStore((s) => s.terminalIdToTitle)
+  const closeTerminal = useTerminalStore((s) => s.closeTerminal)
+  const createNewTerminalForWorktree = useTerminalStore((s) => s.createNewTerminalForWorktree)
+  const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
+  const previousLayoutLengthRef = useRef(0)
+  const previousWorktreeIdRef = useRef<string | null>(null)
+
+  const layout = useMemo(() => {
+    if (!activeWorktreeId) return []
+    return layoutsByWorktreeId[activeWorktreeId] ?? []
+  }, [activeWorktreeId, layoutsByWorktreeId])
+
+  useEffect(() => {
+    if (layout.length === 0) {
+      setActiveTerminalId(null)
+      return
+    }
+
+    const worktreeChanged = previousWorktreeIdRef.current !== activeWorktreeId
+    const terminalAdded = layout.length > previousLayoutLengthRef.current
+    previousLayoutLengthRef.current = layout.length
+    previousWorktreeIdRef.current = activeWorktreeId
+
+    setActiveTerminalId((current) => {
+      if (!worktreeChanged && !terminalAdded && current && layout.some((item) => item.i === current)) {
+        return current
+      }
+      return layout[layout.length - 1]?.i ?? null
+    })
+  }, [activeWorktreeId, layout])
+
+  const handleNewTerminal = () => {
+    if (activeWorktreeId) {
+      createNewTerminalForWorktree(activeWorktreeId)
+    }
+  }
+
+  const handleCloseTerminal = () => {
+    if (activeTerminalId) {
+      closeTerminal(activeTerminalId)
+    }
+  }
+
+  if (!activeWorktreeId || layout.length === 0 || !activeTerminalId) {
+    return (
+      <div className="flex-1 flex items-center justify-center app-subtle px-6">
+        <div className="text-center">
+          <p className="text-lg mb-2">No terminal opened</p>
+          <p className="text-sm">Open the projects menu and select a worktree.</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden">
+      <div className="app-panel-strong border-b flex shrink-0 items-center gap-2 overflow-x-auto px-2 py-2">
+        {layout.map((item, index) => {
+          const isActive = item.i === activeTerminalId
+          return (
+            <button
+              key={item.i}
+              onClick={() => setActiveTerminalId(item.i)}
+              className={`min-w-0 shrink-0 rounded-md border px-3 py-2 text-xs ${
+                isActive ? 'app-panel' : 'app-hover app-muted'
+              }`}
+            >
+              <span className="block max-w-[8rem] truncate">
+                {terminalIdToTitle[item.i] || `Terminal ${index + 1}`}
+              </span>
+            </button>
+          )
+        })}
+        <button
+          onClick={handleNewTerminal}
+          className="app-button-secondary shrink-0 px-3 py-2"
+          title="New terminal"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleCloseTerminal}
+          className="app-button-secondary shrink-0 px-3 py-2"
+          title="Close terminal"
+        >
+          <X className="w-4 h-4 app-danger" />
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 app-panel border-t flex flex-col overflow-hidden">
+        <TerminalPane terminalId={activeTerminalId} fontSize={12} />
+      </div>
     </div>
   )
 }
