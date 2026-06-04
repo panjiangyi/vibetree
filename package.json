@@ -12,6 +12,7 @@
     "dev:web": "pnpm --filter @vibetree/web dev",
     "dev:server": "pnpm --filter @vibetree/server dev",
     "build": "pnpm -r build",
+    "build-and-start": "pnpm build && pnpm --filter @vibetree/server start",
     "build:shared": "pnpm --filter @vibetree/shared build",
     "build:web": "pnpm --filter @vibetree/web build",
     "build:server": "pnpm --filter @vibetree/server build",
