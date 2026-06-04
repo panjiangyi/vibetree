@@ -9,17 +9,24 @@ import { useThemeStore } from '../../stores/theme.store.js'
 type Props = {
   terminalId: string
   fontSize?: number
+  onActionsChange?: (actions: TerminalViewActions | null) => void
 }
 
-function copyText(text: string): void {
-  if (!text) return
+export type TerminalViewActions = {
+  copySelection: () => void
+  focus: () => void
+}
+
+function copyText(text: string): boolean {
+  if (!text) return false
 
   if (navigator.clipboard?.writeText) {
     void navigator.clipboard.writeText(text).catch(() => fallbackCopyText(text))
-    return
+    return true
   }
 
   fallbackCopyText(text)
+  return true
 }
 
 function fallbackCopyText(text: string): void {
@@ -34,7 +41,7 @@ function fallbackCopyText(text: string): void {
   document.body.removeChild(textarea)
 }
 
-export function XtermView({ terminalId, fontSize = 14 }: Props) {
+export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -134,6 +141,10 @@ export function XtermView({ terminalId, fontSize = 14 }: Props) {
 
     termRef.current = term
     fitAddonRef.current = fitAddon
+    onActionsChange?.({
+      copySelection: () => copyText(term.getSelection()),
+      focus: () => term.focus(),
+    })
 
     const resizeObserver = new ResizeObserver(() => {
       fitResizeAndMaybeScroll()
@@ -185,8 +196,9 @@ export function XtermView({ terminalId, fontSize = 14 }: Props) {
       term.dispose()
       termRef.current = null
       fitAddonRef.current = null
+      onActionsChange?.(null)
     }
-  }, [fontSize, resolvedTheme, terminalId])
+  }, [fontSize, onActionsChange, resolvedTheme, terminalId])
 
   return <div ref={containerRef} className="h-full min-h-0 w-full overflow-hidden" />
 }

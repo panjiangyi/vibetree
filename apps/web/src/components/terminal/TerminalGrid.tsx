@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { ReactGridLayout } from 'react-grid-layout/legacy'
 import type { LayoutItem } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
-import { Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Clipboard, Copy, Eraser, Plus, Send, SkipBack, Square, X } from 'lucide-react'
 import { GRID_COLS, GRID_ROWS, useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
+import { terminalSocket } from '../../ws/terminal-socket.js'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { TerminalPane } from './TerminalPane.js'
+import type { TerminalViewActions } from './XtermView.js'
 
 const MARGIN = 8
 
@@ -143,6 +146,7 @@ function MobileTerminalFocus() {
   const closeTerminal = useTerminalStore((s) => s.closeTerminal)
   const createNewTerminalForWorktree = useTerminalStore((s) => s.createNewTerminalForWorktree)
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
+  const [terminalActions, setTerminalActions] = useState<TerminalViewActions | null>(null)
   const previousLayoutLengthRef = useRef(0)
   const previousWorktreeIdRef = useRef<string | null>(null)
 
@@ -154,6 +158,7 @@ function MobileTerminalFocus() {
   useEffect(() => {
     if (layout.length === 0) {
       setActiveTerminalId(null)
+      setTerminalActions(null)
       return
     }
 
@@ -181,6 +186,10 @@ function MobileTerminalFocus() {
       closeTerminal(activeTerminalId)
     }
   }
+
+  useEffect(() => {
+    setTerminalActions(null)
+  }, [activeTerminalId])
 
   if (!activeWorktreeId || layout.length === 0 || !activeTerminalId) {
     return (
@@ -228,9 +237,135 @@ function MobileTerminalFocus() {
         </button>
       </div>
 
+      <MobileTerminalActions
+        terminalId={activeTerminalId}
+        terminalActions={terminalActions}
+      />
+
       <div className="flex-1 min-h-0 app-panel border-t flex flex-col overflow-hidden">
-        <TerminalPane terminalId={activeTerminalId} fontSize={12} />
+        <TerminalPane
+          terminalId={activeTerminalId}
+          fontSize={12}
+          onActionsChange={setTerminalActions}
+        />
       </div>
     </div>
+  )
+}
+
+type MobileTerminalActionsProps = {
+  terminalId: string
+  terminalActions: TerminalViewActions | null
+}
+
+function MobileTerminalActions({ terminalId, terminalActions }: MobileTerminalActionsProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const sendInput = (data: string) => {
+    terminalSocket.input({ terminalId, data })
+    terminalActions?.focus()
+  }
+
+  const handleCopy = () => {
+    terminalActions?.copySelection()
+    terminalActions?.focus()
+  }
+
+  const handlePaste = async () => {
+    setError(null)
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text) {
+        sendInput(text)
+      }
+    } catch {
+      setError('Clipboard access denied')
+    }
+  }
+
+  return (
+    <div className="app-panel-strong border-b shrink-0">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="flex w-full items-center justify-between px-3 py-2 text-sm app-hover"
+      >
+        <span>快捷操作</span>
+        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      {isOpen && (
+        <div className="space-y-2 px-2 pb-2">
+          <div className="grid grid-cols-4 gap-2">
+            <ActionButton
+              label="终止进程"
+              icon={<Square className="w-4 h-4 app-danger" />}
+              onClick={() => sendInput('\x03')}
+            />
+            <ActionButton
+              label="Esc"
+              icon={<SkipBack className="w-4 h-4" />}
+              onClick={() => sendInput('\x1b')}
+            />
+            <ActionButton
+              label="Tab"
+              icon={<Send className="w-4 h-4" />}
+              onClick={() => sendInput('\t')}
+            />
+            <ActionButton
+              label="清屏"
+              icon={<Eraser className="w-4 h-4" />}
+              onClick={() => sendInput('\x0c')}
+            />
+            <ActionButton
+              label="上一条"
+              icon={<ChevronUp className="w-4 h-4" />}
+              onClick={() => sendInput('\x1b[A')}
+            />
+            <ActionButton
+              label="下一条"
+              icon={<ChevronDown className="w-4 h-4" />}
+              onClick={() => sendInput('\x1b[B')}
+            />
+            <ActionButton
+              label="复制"
+              icon={<Copy className="w-4 h-4" />}
+              onClick={handleCopy}
+            />
+            <ActionButton
+              label="粘贴"
+              icon={<Clipboard className="w-4 h-4" />}
+              onClick={handlePaste}
+            />
+          </div>
+
+          {error && (
+            <div className="app-soft-danger app-danger rounded px-3 py-2 text-xs">
+              {error}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type ActionButtonProps = {
+  label: string
+  icon: ReactNode
+  onClick: () => void
+}
+
+function ActionButton({ label, icon, onClick }: ActionButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="app-button-secondary flex min-h-14 flex-col items-center justify-center gap-1 px-2 py-2 text-xs"
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
   )
 }
