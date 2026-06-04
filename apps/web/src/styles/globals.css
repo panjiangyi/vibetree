@@ -3,7 +3,72 @@
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --color-bg: #f3f5f8;
+  --color-panel: #ffffff;
+  --color-panel-strong: #f7f9fc;
+  --color-panel-hover: #edf2f7;
+  --color-border: #d7e0ea;
+  --color-border-strong: #c7d2df;
+  --color-text: #162031;
+  --color-text-muted: #5d6b81;
+  --color-text-subtle: #7d8899;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-soft: rgba(37, 99, 235, 0.14);
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-warning-soft: rgba(245, 158, 11, 0.16);
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-soft: rgba(220, 38, 38, 0.12);
+  --color-overlay: rgba(15, 23, 42, 0.46);
+  --shadow-panel: 0 24px 60px rgba(15, 23, 42, 0.14);
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #090b0f;
+  --color-panel: #11151c;
+  --color-panel-strong: #181e27;
+  --color-panel-hover: #202935;
+  --color-border: #2a3442;
+  --color-border-strong: #384556;
+  --color-text: #edf2f7;
+  --color-text-muted: #a8b4c5;
+  --color-text-subtle: #7e8ca1;
+  --color-accent: #60a5fa;
+  --color-accent-hover: #93c5fd;
+  --color-accent-soft: rgba(96, 165, 250, 0.16);
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-warning-soft: rgba(251, 191, 36, 0.14);
+  --color-danger: #f87171;
+  --color-danger-hover: #ef4444;
+  --color-danger-soft: rgba(248, 113, 113, 0.14);
+  --color-overlay: rgba(2, 6, 23, 0.58);
+  --shadow-panel: 0 24px 60px rgba(0, 0, 0, 0.38);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 28%),
+      var(--color-bg);
+    color: var(--color-text);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    color: inherit;
+  }
 }
 
 body {
@@ -12,6 +77,151 @@ body {
   min-height: 100vh;
 }
 
-#root {
-  height: 100vh;
+@layer components {
+  .app-root {
+    @apply flex h-screen w-screen flex-col;
+  }
+
+  .app-panel {
+    background: var(--color-panel);
+    border-color: var(--color-border);
+  }
+
+  .app-panel-strong {
+    background: var(--color-panel-strong);
+    border-color: var(--color-border);
+  }
+
+  .app-hover {
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+
+  .app-hover:hover {
+    background: var(--color-panel-hover);
+  }
+
+  .app-button-secondary {
+    @apply app-hover rounded-md border px-4 py-2 text-sm;
+    background: var(--color-panel-strong);
+    border-color: var(--color-border);
+  }
+
+  .app-button-primary {
+    @apply rounded-md px-4 py-2 text-sm text-white;
+    background: var(--color-accent);
+    transition: background-color 120ms ease;
+  }
+
+  .app-button-primary:hover {
+    background: var(--color-accent-hover);
+  }
+
+  .app-button-danger {
+    @apply rounded-md px-4 py-2 text-sm text-white;
+    background: var(--color-danger);
+    transition: background-color 120ms ease;
+  }
+
+  .app-button-danger:hover {
+    background: var(--color-danger-hover);
+  }
+
+  .app-icon-button {
+    @apply app-hover rounded p-1;
+  }
+
+  .app-input {
+    @apply w-full rounded-md border px-3 py-2 outline-none;
+    background: var(--color-panel-strong);
+    border-color: var(--color-border-strong);
+  }
+
+  .app-input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  }
+
+  .app-select {
+    @apply rounded-md border px-3 py-2 text-sm outline-none;
+    background: var(--color-panel-strong);
+    border-color: var(--color-border-strong);
+  }
+
+  .app-select:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  }
+
+  .app-dialog-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    background: var(--color-overlay);
+    backdrop-filter: blur(4px);
+  }
+
+  .app-dialog {
+    @apply rounded-xl border shadow-xl;
+    background: var(--color-panel);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .app-dialog-header {
+    @apply flex items-center justify-between border-b p-4;
+    border-color: var(--color-border);
+  }
+
+  .app-muted {
+    color: var(--color-text-muted);
+  }
+
+  .app-subtle {
+    color: var(--color-text-subtle);
+  }
+
+  .app-accent {
+    color: var(--color-accent);
+  }
+
+  .app-success {
+    color: var(--color-success);
+  }
+
+  .app-warning {
+    color: var(--color-warning);
+  }
+
+  .app-danger {
+    color: var(--color-danger);
+  }
+
+  .app-soft-info {
+    background: rgba(37, 99, 235, 0.1);
+  }
+
+  .app-soft-warning {
+    background: var(--color-warning-soft);
+  }
+
+  .app-soft-danger {
+    background: var(--color-danger-soft);
+  }
+
+  .app-badge {
+    @apply rounded px-1.5 py-0.5 text-xs;
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+
+  .app-link {
+    color: var(--color-accent);
+    transition: color 120ms ease;
+  }
+
+  .app-link:hover {
+    color: var(--color-accent-hover);
+  }
+
+  .app-disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
 }

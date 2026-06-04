@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { terminalSocket } from '../../ws/terminal-socket.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
+import { useThemeStore } from '../../stores/theme.store.js'
 
 type Props = {
   terminalId: string
@@ -14,18 +15,29 @@ export function XtermView({ terminalId }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
+  const resolvedTheme = useThemeStore((s) => s.resolvedTheme)
 
   useEffect(() => {
     if (!containerRef.current) return
+
+    const theme =
+      resolvedTheme === 'dark'
+        ? {
+            background: '#090b0f',
+            foreground: '#edf2f7',
+            cursor: '#93c5fd',
+          }
+        : {
+            background: '#f7f9fc',
+            foreground: '#162031',
+            cursor: '#2563eb',
+          }
 
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 14,
       fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#e5e5e5',
-      },
+      theme,
       scrollback: 10000,
     })
 
@@ -90,7 +102,7 @@ export function XtermView({ terminalId }: Props) {
       termRef.current = null
       fitAddonRef.current = null
     }
-  }, [terminalId])
+  }, [resolvedTheme, terminalId])
 
   return <div ref={containerRef} className="h-full w-full" />
 }

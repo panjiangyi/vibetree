@@ -41,11 +41,11 @@ export function AddProjectDialog() {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-neutral-900 rounded-lg w-[480px] shadow-xl">
-          <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+      <div className="app-dialog-overlay">
+        <div className="app-dialog w-[480px]">
+          <div className="app-dialog-header">
             <h2 className="text-lg font-medium">Add Project</h2>
-            <button onClick={closeDialog} className="p-1 hover:bg-neutral-800 rounded">
+            <button onClick={closeDialog} className="app-icon-button">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -61,13 +61,13 @@ export function AddProjectDialog() {
                   value={repoPath}
                   onChange={(e) => setRepoPath(e.target.value)}
                   placeholder="/path/to/your/git/repo"
-                  className="flex-1 px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none"
+                  className="app-input flex-1"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowDirectoryPicker(true)}
-                  className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-neutral-700"
+                  className="app-button-secondary px-2 py-2"
                   title="Browse directories"
                 >
                   <FolderOpen className="w-5 h-5" />
@@ -77,42 +77,42 @@ export function AddProjectDialog() {
 
             <div>
               <label className="block text-sm font-medium mb-1.5">
-                Main Branch <span className="text-neutral-500">(optional)</span>
+                Main Branch <span className="app-subtle">(optional)</span>
               </label>
               <input
                 type="text"
                 value={mainBranch}
                 onChange={(e) => setMainBranch(e.target.value)}
                 placeholder="Leave empty to auto-detect"
-                className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none"
+                className="app-input"
               />
-              <p className="text-xs text-neutral-500 mt-1">
+              <p className="text-xs app-subtle mt-1">
                 Auto-detected from remote HEAD if left empty
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1.5">
-                Setup Script <span className="text-neutral-500">(optional)</span>
+                Setup Script <span className="app-subtle">(optional)</span>
               </label>
               <textarea
                 value={setupScript}
                 onChange={(e) => setSetupScript(e.target.value)}
                 placeholder="pnpm install"
                 rows={3}
-                className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none font-mono text-sm"
+                className="app-input font-mono text-sm"
               />
-              <p className="text-xs text-neutral-500 mt-1">
+              <p className="text-xs app-subtle mt-1">
                 Runs automatically after creating a new worktree
               </p>
             </div>
 
-            <p className="text-xs text-neutral-500">
-              Worktrees will be created at: <code className="text-neutral-400">~/.worktree/[project-name]/[branch]</code>
+            <p className="text-xs app-subtle">
+              Worktrees will be created at: <code className="app-muted">~/.worktree/[project-name]/[branch]</code>
             </p>
 
             {error && (
-              <div className="text-sm text-red-400 bg-red-400/10 px-3 py-2 rounded">
+              <div className="text-sm app-danger app-soft-danger px-3 py-2 rounded">
                 {error}
               </div>
             )}
@@ -121,14 +121,14 @@ export function AddProjectDialog() {
               <button
                 type="button"
                 onClick={closeDialog}
-                className="px-4 py-2 text-sm bg-neutral-800 hover:bg-neutral-700 rounded"
+                className="app-button-secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading || !repoPath.trim()}
-                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 rounded disabled:opacity-50"
+                className={`app-button-primary ${loading || !repoPath.trim() ? 'app-disabled' : ''}`}
               >
                 {loading ? 'Adding...' : 'Add Project'}
               </button>

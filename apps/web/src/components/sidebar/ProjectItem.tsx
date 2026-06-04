@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronDown, RefreshCw, Trash2, Plus, Settings } from 'lucide-react'
+import { ChevronRight, ChevronDown, RefreshCw, Plus, Settings } from 'lucide-react'
 import type { Project, Worktree } from '@vibetree/shared'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
@@ -20,13 +20,13 @@ export function ProjectItem({ project, worktrees }: Props) {
   return (
     <div className="select-none">
       <div
-        className="flex items-center gap-1 px-3 py-1.5 hover:bg-neutral-800/50 cursor-pointer group"
+        className="flex items-center gap-1 px-3 py-1.5 app-hover cursor-pointer group rounded-md mx-1"
         onClick={() => toggleProjectExpanded(project.id)}
       >
         {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-neutral-400" />
+          <ChevronDown className="w-4 h-4 app-subtle" />
         ) : (
-          <ChevronRight className="w-4 h-4 text-neutral-400" />
+          <ChevronRight className="w-4 h-4 app-subtle" />
         )}
         <span className="text-sm font-medium truncate flex-1">{project.name}</span>
         <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
@@ -35,7 +35,7 @@ export function ProjectItem({ project, worktrees }: Props) {
               e.stopPropagation()
               openDialog('createWorktree', { projectId: project.id })
             }}
-            className="p-1 hover:bg-neutral-700 rounded"
+            className="app-icon-button"
             title="Create worktree"
           >
             <Plus className="w-3 h-3" />
@@ -45,7 +45,7 @@ export function ProjectItem({ project, worktrees }: Props) {
               e.stopPropagation()
               openDialog('projectSettings', { project })
             }}
-            className="p-1 hover:bg-neutral-700 rounded"
+            className="app-icon-button"
             title="Project settings"
           >
             <Settings className="w-3 h-3" />
@@ -55,7 +55,7 @@ export function ProjectItem({ project, worktrees }: Props) {
               e.stopPropagation()
               refreshProject(project.id)
             }}
-            className="p-1 hover:bg-neutral-700 rounded"
+            className="app-icon-button"
             title="Refresh"
           >
             <RefreshCw className="w-3 h-3" />

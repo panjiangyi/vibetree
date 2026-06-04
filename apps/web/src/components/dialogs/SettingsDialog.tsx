@@ -1,32 +1,79 @@
 import { useState } from 'react'
-import { X, Info } from 'lucide-react'
+import { X, Info, Monitor, Moon, Sun } from 'lucide-react'
 import { useUiStore } from '../../stores/ui.store.js'
+import { type ThemeMode, useThemeStore } from '../../stores/theme.store.js'
 
 export function SettingsDialog() {
   const closeDialog = useUiStore((s) => s.closeDialog)
+  const themeMode = useThemeStore((s) => s.themeMode)
+  const setThemeMode = useThemeStore((s) => s.setThemeMode)
 
   const [apiBase, setApiBase] = useState(
     localStorage.getItem('vibetree.apiBase') ?? 'http://127.0.0.1:3767'
   )
+  const [selectedThemeMode, setSelectedThemeMode] = useState<ThemeMode>(themeMode)
 
   const handleSave = () => {
+    const previousApiBase = localStorage.getItem('vibetree.apiBase') ?? 'http://127.0.0.1:3767'
+    setThemeMode(selectedThemeMode)
     localStorage.setItem('vibetree.apiBase', apiBase)
     closeDialog()
-    // Reload to apply new API base
-    window.location.reload()
+
+    if (previousApiBase !== apiBase) {
+      window.location.reload()
+    }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-neutral-900 rounded-lg w-[420px] shadow-xl">
-        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+    <div className="app-dialog-overlay">
+      <div className="app-dialog w-[420px]">
+        <div className="app-dialog-header">
           <h2 className="text-lg font-medium">Settings</h2>
-          <button onClick={closeDialog} className="p-1 hover:bg-neutral-800 rounded">
+          <button onClick={closeDialog} className="app-icon-button">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">
+              Theme
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedThemeMode('system')}
+                className={`rounded-md border px-3 py-2 text-sm ${
+                  selectedThemeMode === 'system' ? 'app-soft-info app-accent border-[var(--color-accent)]' : 'app-panel-strong app-hover'
+                }`}
+              >
+                <Monitor className="w-4 h-4 mx-auto mb-1" />
+                System
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedThemeMode('light')}
+                className={`rounded-md border px-3 py-2 text-sm ${
+                  selectedThemeMode === 'light' ? 'app-soft-info app-accent border-[var(--color-accent)]' : 'app-panel-strong app-hover'
+                }`}
+              >
+                <Sun className="w-4 h-4 mx-auto mb-1" />
+                Light
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedThemeMode('dark')}
+                className={`rounded-md border px-3 py-2 text-sm ${
+                  selectedThemeMode === 'dark' ? 'app-soft-info app-accent border-[var(--color-accent)]' : 'app-panel-strong app-hover'
+                }`}
+              >
+                <Moon className="w-4 h-4 mx-auto mb-1" />
+                Dark
+              </button>
+            </div>
+            <p className="app-subtle text-xs mt-1">System follows your OS preference automatically.</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-1.5">
               API Base URL
@@ -35,16 +82,16 @@ export function SettingsDialog() {
               type="text"
               value={apiBase}
               onChange={(e) => setApiBase(e.target.value)}
-              className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none"
+              className="app-input"
             />
-            <p className="text-xs text-neutral-500 mt-1">
+            <p className="app-subtle text-xs mt-1">
               Default: http://127.0.0.1:3767
             </p>
           </div>
 
-          <div className="flex items-start gap-2 p-3 bg-neutral-800/50 rounded">
-            <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-neutral-400">
+          <div className="flex items-start gap-2 p-3 app-soft-info rounded">
+            <Info className="w-4 h-4 app-accent flex-shrink-0 mt-0.5" />
+            <div className="text-xs app-muted">
               <p>VibeTree is a local-only tool.</p>
               <p className="mt-1">It listens on 127.0.0.1 by default and should not be exposed to the network.</p>
             </div>
@@ -53,15 +100,15 @@ export function SettingsDialog() {
           <div className="flex justify-end gap-2">
             <button
               onClick={closeDialog}
-              className="px-4 py-2 text-sm bg-neutral-800 hover:bg-neutral-700 rounded"
+              className="app-button-secondary"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 rounded"
+              className="app-button-primary"
             >
-              Save & Reload
+              {apiBase === (localStorage.getItem('vibetree.apiBase') ?? 'http://127.0.0.1:3767') ? 'Save' : 'Save & Reload'}
             </button>
           </div>
         </div>

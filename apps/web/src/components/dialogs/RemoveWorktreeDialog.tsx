@@ -48,36 +48,36 @@ export function RemoveWorktreeDialog() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-neutral-900 rounded-lg w-[420px] shadow-xl">
-        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+    <div className="app-dialog-overlay">
+      <div className="app-dialog w-[420px]">
+        <div className="app-dialog-header">
           <h2 className="text-lg font-medium">Remove Worktree</h2>
-          <button onClick={closeDialog} className="p-1 hover:bg-neutral-800 rounded">
+          <button onClick={closeDialog} className="app-icon-button">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-4 space-y-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="w-5 h-5 app-warning flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium">{worktree.name}</p>
-              <p className="text-sm text-neutral-400 mt-1">{worktree.path}</p>
+              <p className="text-sm app-muted mt-1">{worktree.path}</p>
             </div>
           </div>
 
           {isDisabled ? (
-            <div className="text-sm text-yellow-400 bg-yellow-400/10 px-3 py-2 rounded">
+            <div className="text-sm app-warning app-soft-warning px-3 py-2 rounded">
               {disabledReason}
             </div>
           ) : (
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm app-muted">
               This will remove the worktree from Git and delete the directory. This action cannot be undone.
             </p>
           )}
 
           {error && (
-            <div className="text-sm text-red-400 bg-red-400/10 px-3 py-2 rounded">
+            <div className="text-sm app-danger app-soft-danger px-3 py-2 rounded">
               {error}
             </div>
           )}
@@ -85,14 +85,14 @@ export function RemoveWorktreeDialog() {
           <div className="flex justify-end gap-2">
             <button
               onClick={closeDialog}
-              className="px-4 py-2 text-sm bg-neutral-800 hover:bg-neutral-700 rounded"
+              className="app-button-secondary"
             >
               Cancel
             </button>
             <button
               onClick={handleRemove}
               disabled={isDisabled || loading}
-              className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded disabled:opacity-50"
+              className={`app-button-danger ${isDisabled || loading ? 'app-disabled' : ''}`}
             >
               {loading ? 'Removing...' : 'Remove'}
             </button>

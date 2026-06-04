@@ -37,11 +37,11 @@ export function ProjectSettingsDialog() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-neutral-900 rounded-lg w-[480px] shadow-xl">
-        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+    <div className="app-dialog-overlay">
+      <div className="app-dialog w-[480px]">
+        <div className="app-dialog-header">
           <h2 className="text-lg font-medium">Project Settings</h2>
-          <button onClick={closeDialog} className="p-1 hover:bg-neutral-800 rounded">
+          <button onClick={closeDialog} className="app-icon-button">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -55,7 +55,7 @@ export function ProjectSettingsDialog() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none"
+              className="app-input"
               required
             />
           </div>
@@ -69,35 +69,35 @@ export function ProjectSettingsDialog() {
               value={mainBranch}
               onChange={(e) => setMainBranch(e.target.value)}
               placeholder="main"
-              className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none"
+              className="app-input"
             />
-            <p className="text-xs text-neutral-500 mt-1">
+            <p className="text-xs app-subtle mt-1">
               Default branch for new worktrees
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1.5">
-              Setup Script <span className="text-neutral-500">(optional)</span>
+              Setup Script <span className="app-subtle">(optional)</span>
             </label>
             <textarea
               value={setupScript}
               onChange={(e) => setSetupScript(e.target.value)}
               placeholder="pnpm install"
               rows={3}
-              className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none font-mono text-sm"
+              className="app-input font-mono text-sm"
             />
-            <p className="text-xs text-neutral-500 mt-1">
+            <p className="text-xs app-subtle mt-1">
               Runs automatically after creating a new worktree
             </p>
           </div>
 
-          <p className="text-xs text-neutral-500">
-            Worktrees are stored at: <code className="text-neutral-400">~/.worktree/{project.name}/[branch]</code>
+          <p className="text-xs app-subtle">
+            Worktrees are stored at: <code className="app-muted">~/.worktree/{project.name}/[branch]</code>
           </p>
 
           {error && (
-            <div className="text-sm text-red-400 bg-red-400/10 px-3 py-2 rounded">
+            <div className="text-sm app-danger app-soft-danger px-3 py-2 rounded">
               {error}
             </div>
           )}
@@ -106,14 +106,14 @@ export function ProjectSettingsDialog() {
             <button
               type="button"
               onClick={closeDialog}
-              className="px-4 py-2 text-sm bg-neutral-800 hover:bg-neutral-700 rounded"
+              className="app-button-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !name.trim()}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 rounded disabled:opacity-50"
+              className={`app-button-primary ${loading || !name.trim() ? 'app-disabled' : ''}`}
             >
               {loading ? 'Saving...' : 'Save Changes'}
             </button>

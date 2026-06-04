@@ -18,15 +18,15 @@ export function Header() {
   }
 
   return (
-    <header className="h-12 border-b border-neutral-800 flex items-center px-4 gap-4">
+    <header className="h-12 border-b app-panel flex items-center px-4 gap-4">
       <div className="flex items-center gap-2 font-semibold">
-        <Terminal className="w-5 h-5 text-green-400" />
+        <Terminal className="w-5 h-5 app-success" />
         <span>VibeTree</span>
       </div>
 
       <button
         onClick={() => openDialog('addProject')}
-        className="flex items-center gap-1 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-sm"
+        className="app-button-secondary flex items-center gap-1 py-1.5"
       >
         <Plus className="w-4 h-4" />
         Add Project
@@ -34,7 +34,7 @@ export function Header() {
 
       <button
         onClick={handleRefreshAll}
-        className="flex items-center gap-1 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-sm"
+        className="app-button-secondary flex items-center gap-1 py-1.5"
       >
         <RefreshCw className="w-4 h-4" />
         Refresh
@@ -42,14 +42,14 @@ export function Header() {
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-2 text-sm text-neutral-400">
+      <div className="flex items-center gap-2 text-sm app-muted">
         <Terminal className="w-4 h-4" />
         <span>Running: {runningCount}</span>
       </div>
 
       <button
         onClick={() => openDialog('settings')}
-        className="p-2 hover:bg-neutral-800 rounded"
+        className="app-icon-button p-2"
       >
         <Settings className="w-4 h-4" />
       </button>

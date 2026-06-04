@@ -13,7 +13,7 @@ export function AppLayout() {
   const activeDialog = useUiStore((s) => s.activeDialog)
 
   return (
-    <div className="h-screen w-screen bg-neutral-950 text-neutral-100 flex flex-col">
+    <div className="app-root">
       <Header />
       <div className="flex flex-1 min-h-0">
         <Sidebar />

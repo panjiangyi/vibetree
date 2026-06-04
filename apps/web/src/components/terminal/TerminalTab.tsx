@@ -1,4 +1,4 @@
-import { X, RotateCw, AlertCircle, Loader2 } from 'lucide-react'
+import { X, RotateCw, AlertCircle } from 'lucide-react'
 import type { TerminalSession } from '@vibetree/shared'
 
 type Props = {
@@ -17,9 +17,9 @@ export function TerminalTab({ terminal, isActive, onClick, onClose, onRestart }:
   return (
     <div
       className={`
-        flex items-center gap-2 px-3 py-2 text-sm cursor-pointer border-r border-neutral-800
+        flex items-center gap-2 px-3 py-2 text-sm cursor-pointer border-r
         min-w-[120px] max-w-[200px]
-        ${isActive ? 'bg-neutral-950 text-neutral-100' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800'}
+        ${isActive ? 'app-panel' : 'app-panel-strong app-muted app-hover'}
       `}
       onClick={onClick}
     >
@@ -30,7 +30,7 @@ export function TerminalTab({ terminal, isActive, onClick, onClose, onRestart }:
       <div className="flex items-center gap-1">
         {isDisconnected && (
           <span title="Disconnected">
-            <AlertCircle className="w-3.5 h-3.5 text-yellow-400" />
+            <AlertCircle className="w-3.5 h-3.5 app-warning" />
           </span>
         )}
         {isExited && (
@@ -39,10 +39,10 @@ export function TerminalTab({ terminal, isActive, onClick, onClose, onRestart }:
               e.stopPropagation()
               onRestart()
             }}
-            className="p-0.5 hover:bg-neutral-700 rounded"
+            className="app-icon-button p-0.5"
             title="Restart"
           >
-            <RotateCw className="w-3.5 h-3.5 text-yellow-400" />
+            <RotateCw className="w-3.5 h-3.5 app-warning" />
           </button>
         )}
         <button
@@ -50,7 +50,7 @@ export function TerminalTab({ terminal, isActive, onClick, onClose, onRestart }:
             e.stopPropagation()
             onClose()
           }}
-          className="p-0.5 hover:bg-neutral-700 rounded"
+          className="app-icon-button p-0.5"
           title="Close"
         >
           <X className="w-3.5 h-3.5" />

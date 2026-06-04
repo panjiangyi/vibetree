@@ -1,4 +1,4 @@
-import { GitBranch, Terminal, Trash2, RefreshCw } from 'lucide-react'
+import { GitBranch, Terminal, Trash2 } from 'lucide-react'
 import type { Worktree } from '@vibetree/shared'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useUiStore } from '../../stores/ui.store.js'
@@ -20,22 +20,22 @@ export function WorktreeItem({ worktree }: Props) {
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 hover:bg-neutral-800/50 cursor-pointer group"
+      className="flex items-center gap-2 px-3 py-1.5 app-hover cursor-pointer group rounded-md mx-1"
       onClick={() => openTerminalForWorktree(worktree.id)}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           {worktree.isMain ? (
-            <span className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">
+            <span className="app-badge">
               root
             </span>
           ) : (
-            <GitBranch className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
+            <GitBranch className="w-3.5 h-3.5 app-subtle flex-shrink-0" />
           )}
           <span className="text-sm truncate">{displayName}</span>
         </div>
         {worktree.displayName && worktree.branch && !worktree.isMain && (
-          <div className="text-xs text-neutral-500 truncate ml-5">
+          <div className="text-xs app-subtle truncate ml-5">
             {worktree.branch}
           </div>
         )}
@@ -43,10 +43,10 @@ export function WorktreeItem({ worktree }: Props) {
 
       <div className="flex items-center gap-1">
         {worktree.isDirty && (
-          <span className="text-xs text-yellow-400">dirty</span>
+          <span className="text-xs app-warning">dirty</span>
         )}
         {runningCount > 0 && (
-          <span className="flex items-center gap-0.5 text-xs text-green-400">
+          <span className="flex items-center gap-0.5 text-xs app-success">
             <Terminal className="w-3 h-3" />
             {runningCount}
           </span>
@@ -60,7 +60,7 @@ export function WorktreeItem({ worktree }: Props) {
               e.stopPropagation()
               openDialog('removeWorktree', { worktree })
             }}
-            className="p-1 hover:bg-neutral-700 rounded"
+            className="app-icon-button"
             title="Remove worktree"
           >
             <Trash2 className="w-3 h-3" />

@@ -64,11 +64,11 @@ export function CreateWorktreeDialog() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-neutral-900 rounded-lg w-[480px] shadow-xl">
-        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+    <div className="app-dialog-overlay">
+      <div className="app-dialog w-[480px]">
+        <div className="app-dialog-header">
           <h2 className="text-lg font-medium">Create Worktree</h2>
-          <button onClick={closeDialog} className="p-1 hover:bg-neutral-800 rounded">
+          <button onClick={closeDialog} className="app-icon-button">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -83,7 +83,7 @@ export function CreateWorktreeDialog() {
               value={branch}
               onChange={(e) => setBranch(e.target.value)}
               placeholder="feature-login"
-              className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none"
+              className="app-input"
               required
             />
           </div>
@@ -105,20 +105,20 @@ export function CreateWorktreeDialog() {
                   setBranchSearch('')
                 }}
                 placeholder="main"
-                className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none pr-8"
+                className="app-input pr-8"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowBranchDropdown(!showBranchDropdown)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-neutral-700 rounded"
+                className="absolute right-2 top-1/2 -translate-y-1/2 app-icon-button"
               >
-                <ChevronDown className="w-4 h-4 text-neutral-400" />
+                <ChevronDown className="w-4 h-4 app-subtle" />
               </button>
             </div>
 
             {showBranchDropdown && filteredBranches.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-md shadow-lg max-h-48 overflow-auto">
+              <div className="absolute z-10 w-full mt-1 app-panel-strong border rounded-md shadow-lg max-h-48 overflow-auto">
                 {filteredBranches.map((b) => (
                   <button
                     key={b}
@@ -128,38 +128,38 @@ export function CreateWorktreeDialog() {
                       setBranchSearch('')
                       setShowBranchDropdown(false)
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-neutral-700 flex items-center gap-2 text-sm"
+                    className="w-full text-left px-3 py-2 app-hover flex items-center gap-2 text-sm"
                   >
-                    <GitBranch className="w-3 h-3 text-neutral-400" />
+                    <GitBranch className="w-3 h-3 app-subtle" />
                     {b}
                   </button>
                 ))}
               </div>
             )}
 
-            <p className="text-xs text-neutral-500 mt-1">
+            <p className="text-xs app-subtle mt-1">
               The branch or commit to create the new worktree from
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1.5">
-              Custom Name <span className="text-neutral-500">(optional)</span>
+              Custom Name <span className="app-subtle">(optional)</span>
             </label>
             <input
               type="text"
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
               placeholder="My Feature Branch"
-              className="w-full px-3 py-2 bg-neutral-800 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none"
+              className="app-input"
             />
-            <p className="text-xs text-neutral-500 mt-1">
+            <p className="text-xs app-subtle mt-1">
               Display name shown in sidebar (defaults to branch name)
             </p>
           </div>
 
           {error && (
-            <div className="text-sm text-red-400 bg-red-400/10 px-3 py-2 rounded">
+            <div className="text-sm app-danger app-soft-danger px-3 py-2 rounded">
               {error}
             </div>
           )}
@@ -168,14 +168,14 @@ export function CreateWorktreeDialog() {
             <button
               type="button"
               onClick={closeDialog}
-              className="px-4 py-2 text-sm bg-neutral-800 hover:bg-neutral-700 rounded"
+              className="app-button-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !branch.trim() || !baseRef.trim()}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 rounded disabled:opacity-50"
+              className={`app-button-primary ${loading || !branch.trim() || !baseRef.trim() ? 'app-disabled' : ''}`}
             >
               {loading ? 'Creating...' : 'Create Worktree'}
             </button>

@@ -19,7 +19,7 @@ export function WorktreeTabs() {
   if (worktrees.length === 0) return null
 
   return (
-    <div className="flex border-b border-neutral-800 bg-neutral-900 overflow-x-auto">
+    <div className="flex border-b app-panel overflow-x-auto">
       {worktrees.map((worktree) => {
         const isActive = worktree.id === activeWorktreeId
         const terminalCount = terminals.filter(
@@ -31,17 +31,17 @@ export function WorktreeTabs() {
           <div
             key={worktree.id}
             className={`
-              flex items-center gap-1 px-3 py-2 text-sm border-r border-neutral-800
-              ${isActive ? 'bg-neutral-800 text-neutral-100' : 'text-neutral-400'}
+              flex items-center gap-1 px-3 py-2 text-sm border-r
+              ${isActive ? 'app-panel-strong' : 'app-muted'}
             `}
           >
             <button
               onClick={() => setActiveWorktree(worktree.id)}
-              className="flex items-center gap-2 hover:text-neutral-100 whitespace-nowrap"
+              className="flex items-center gap-2 whitespace-nowrap"
             >
               <span className="truncate max-w-[120px]">{displayName}</span>
               {terminalCount > 0 && (
-                <span className="text-xs text-green-400">{terminalCount}</span>
+                <span className="text-xs app-success">{terminalCount}</span>
               )}
             </button>
             <button
@@ -49,7 +49,7 @@ export function WorktreeTabs() {
                 e.stopPropagation()
                 createNewTerminalForWorktree(worktree.id)
               }}
-              className="p-0.5 hover:bg-neutral-700 rounded"
+              className="app-icon-button p-0.5"
               title="New terminal"
             >
               <Plus className="w-3 h-3" />
@@ -59,7 +59,7 @@ export function WorktreeTabs() {
                 e.stopPropagation()
                 closeWorktreeTerminals(worktree.id)
               }}
-              className="p-0.5 hover:bg-neutral-700 rounded"
+              className="app-icon-button p-0.5"
               title="Close tab"
             >
               <X className="w-3 h-3" />

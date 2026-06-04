@@ -70,7 +70,7 @@ export function TerminalGrid() {
 
   if (!activeWorktreeId || layout.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-neutral-500">
+      <div className="flex-1 flex items-center justify-center app-subtle">
         <div className="text-center">
           <p className="text-lg mb-2">No terminal opened</p>
           <p className="text-sm">Select a worktree from the left sidebar to open a terminal.</p>
@@ -102,20 +102,20 @@ export function TerminalGrid() {
           {layout.map((item) => (
             <div
               key={item.i}
-              className="bg-neutral-900 border border-neutral-700 rounded overflow-hidden flex flex-col"
+              className="app-panel border rounded overflow-hidden flex flex-col"
             >
-              <div className="drag-handle flex items-center justify-between px-2 py-1 bg-neutral-800 border-b border-neutral-700 cursor-move select-none">
-                <span className="text-xs text-neutral-300 truncate">
+              <div className="drag-handle flex items-center justify-between px-2 py-1 app-panel-strong border-b cursor-move select-none">
+                <span className="text-xs app-muted truncate">
                   {terminalIdToTitle[item.i] || item.i}
                 </span>
                 <span
                   role="button"
                   onClick={(e) => handleClose(item.i, e)}
                   onMouseDown={(e) => e.stopPropagation()}
-                  className="p-0.5 hover:bg-red-600 rounded cursor-pointer"
+                  className="p-0.5 rounded cursor-pointer app-hover"
                   title="Close terminal"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3 h-3 app-danger" />
                 </span>
               </div>
               <div className="flex flex-col flex-1 min-h-0">
