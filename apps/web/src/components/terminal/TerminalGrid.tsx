@@ -95,7 +95,7 @@ export function TerminalGrid() {
           onLayoutChange={handleLayoutChange}
           draggableHandle=".drag-handle"
           resizeHandles={['se']}
-          compactType="horizontal"
+          compactType="vertical"
           preventCollision={false}
           isBounded
         >

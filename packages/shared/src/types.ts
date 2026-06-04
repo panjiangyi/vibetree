@@ -68,6 +68,10 @@ export type CreateWorktreeInput = {
   name?: string
 }
 
+export type UpdateWorktreeInput = {
+  displayName?: string | null
+}
+
 export type CreateTerminalInput = {
   shell?: string
   title?: string

@@ -39,7 +39,7 @@ export function WorktreeTabs() {
               onClick={() => setActiveWorktree(worktree.id)}
               className="flex items-center gap-2 whitespace-nowrap"
             >
-              <span className="truncate max-w-[120px]">{displayName}</span>
+              <span className="truncate max-w-[clamp(120px,18vw,260px)]">{displayName}</span>
               {terminalCount > 0 && (
                 <span className="text-xs app-success">{terminalCount}</span>
               )}

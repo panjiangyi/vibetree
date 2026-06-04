@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 
-type DialogType = 'addProject' | 'createWorktree' | 'removeWorktree' | 'settings' | 'projectSettings' | null
+type DialogType =
+  | 'addProject'
+  | 'createWorktree'
+  | 'removeWorktree'
+  | 'editWorktreeAlias'
+  | 'settings'
+  | 'projectSettings'
+  | null
 
 type UiStore = {
   activeDialog: DialogType

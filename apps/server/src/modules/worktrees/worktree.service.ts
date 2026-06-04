@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { nanoid } from 'nanoid'
-import type { Worktree, CreateWorktreeInput } from '@vibetree/shared'
+import type { Worktree, CreateWorktreeInput, UpdateWorktreeInput } from '@vibetree/shared'
 import * as git from '../git/git.service.js'
 import { assertPathInside, normalizePath } from '../security/path-safety.js'
 import {
@@ -204,6 +204,22 @@ export function createWorktreeService(
 
       worktreeRepo.delete(worktreeId)
       await this.syncProjectWorktrees(wt.projectId)
+    },
+
+    updateWorktree(worktreeId: string, input: UpdateWorktreeInput): Worktree {
+      const wt = worktreeRepo.findById(worktreeId)
+      if (!wt) {
+        throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
+      }
+
+      const displayName =
+        input.displayName === undefined
+          ? wt.displayName
+          : input.displayName?.trim() || null
+      const updatedAt = new Date().toISOString()
+      const updated = { ...wt, displayName, updatedAt }
+      worktreeRepo.upsert(updated)
+      return updated
     },
 
     async refreshWorktreeDirty(worktreeId: string): Promise<Worktree> {

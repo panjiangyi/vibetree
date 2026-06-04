@@ -4,17 +4,40 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { terminalSocket } from '../../ws/terminal-socket.js'
-import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useThemeStore } from '../../stores/theme.store.js'
 
 type Props = {
   terminalId: string
 }
 
+function copyText(text: string): void {
+  if (!text) return
+
+  if (navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(text).catch(() => fallbackCopyText(text))
+    return
+  }
+
+  fallbackCopyText(text)
+}
+
+function fallbackCopyText(text: string): void {
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  document.body.removeChild(textarea)
+}
+
 export function XtermView({ terminalId }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
+  const atBottomRef = useRef(true)
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme)
 
   useEffect(() => {
@@ -26,11 +49,17 @@ export function XtermView({ terminalId }: Props) {
             background: '#090b0f',
             foreground: '#edf2f7',
             cursor: '#93c5fd',
+            selectionBackground: '#2563eb',
+            selectionForeground: '#ffffff',
+            selectionInactiveBackground: '#1d4ed8',
           }
         : {
             background: '#f7f9fc',
             foreground: '#162031',
             cursor: '#2563eb',
+            selectionBackground: '#93c5fd',
+            selectionForeground: '#08111f',
+            selectionInactiveBackground: '#bfdbfe',
           }
 
     const term = new Terminal({
@@ -48,7 +77,45 @@ export function XtermView({ terminalId }: Props) {
     term.loadAddon(webLinksAddon)
     term.open(containerRef.current)
 
-    // Initial fit
+    const scrollToBottom = () => {
+      term.scrollToBottom()
+      atBottomRef.current = true
+    }
+
+    const fitResizeAndMaybeScroll = (forceScroll = false) => {
+      const shouldScroll = forceScroll || atBottomRef.current
+      requestAnimationFrame(() => {
+        fitAddon.fit()
+        terminalSocket.resize({
+          terminalId,
+          cols: term.cols,
+          rows: term.rows,
+        })
+
+        if (shouldScroll) {
+          requestAnimationFrame(scrollToBottom)
+        }
+      })
+    }
+
+    term.attachCustomKeyEventHandler((event) => {
+      const key = event.key.toLowerCase()
+      const isCopyShortcut =
+        event.type === 'keydown' &&
+        key === 'c' &&
+        ((event.ctrlKey && event.shiftKey && !event.altKey) ||
+          (event.altKey && !event.ctrlKey && !event.metaKey))
+
+      if (!isCopyShortcut) {
+        return true
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+      copyText(term.getSelection())
+      return false
+    })
+
     requestAnimationFrame(() => {
       fitAddon.fit()
       terminalSocket.attach({
@@ -56,6 +123,7 @@ export function XtermView({ terminalId }: Props) {
         cols: term.cols,
         rows: term.rows,
       })
+      requestAnimationFrame(scrollToBottom)
     })
 
     // Handle input
@@ -66,17 +134,29 @@ export function XtermView({ terminalId }: Props) {
     termRef.current = term
     fitAddonRef.current = fitAddon
 
-    // Handle resize
     const resizeObserver = new ResizeObserver(() => {
-      fitAddon.fit()
-      terminalSocket.resize({
-        terminalId,
-        cols: term.cols,
-        rows: term.rows,
-      })
+      fitResizeAndMaybeScroll()
     })
 
     resizeObserver.observe(containerRef.current)
+
+    const scrollDisposable = term.onScroll(() => {
+      const buffer = term.buffer.active
+      atBottomRef.current = buffer.baseY - buffer.viewportY <= 1
+    })
+
+    const writeParsedDisposable = term.onWriteParsed(() => {
+      if (atBottomRef.current) {
+        requestAnimationFrame(scrollToBottom)
+      }
+    })
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fitResizeAndMaybeScroll()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     // Handle messages
     const unsubscribe = terminalSocket.onMessage((message) => {
@@ -96,7 +176,10 @@ export function XtermView({ terminalId }: Props) {
 
     return () => {
       unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       resizeObserver.disconnect()
+      scrollDisposable.dispose()
+      writeParsedDisposable.dispose()
       disposable.dispose()
       term.dispose()
       termRef.current = null

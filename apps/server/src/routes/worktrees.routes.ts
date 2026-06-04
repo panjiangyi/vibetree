@@ -9,6 +9,10 @@ const createWorktreeSchema = z.object({
   name: z.string().optional(),
 })
 
+const updateWorktreeSchema = z.object({
+  displayName: z.string().nullable().optional(),
+})
+
 export async function registerWorktreeRoutes(
   app: FastifyInstance,
   worktreeService: WorktreeService
@@ -25,6 +29,12 @@ export async function registerWorktreeRoutes(
     const worktree = await worktreeService.createWorktree(projectId, input)
     reply.status(201)
     return worktree
+  })
+
+  app.patch('/api/worktrees/:worktreeId', async (request) => {
+    const { worktreeId } = request.params as { worktreeId: string }
+    const input = updateWorktreeSchema.parse(request.body)
+    return worktreeService.updateWorktree(worktreeId, input)
   })
 
   app.delete('/api/worktrees/:worktreeId', async (request) => {

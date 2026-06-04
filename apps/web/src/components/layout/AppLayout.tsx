@@ -4,6 +4,7 @@ import { WorktreeTabs } from '../terminal/WorktreeTabs.js'
 import { TerminalGrid } from '../terminal/TerminalGrid.js'
 import { AddProjectDialog } from '../dialogs/AddProjectDialog.js'
 import { CreateWorktreeDialog } from '../dialogs/CreateWorktreeDialog.js'
+import { EditWorktreeAliasDialog } from '../dialogs/EditWorktreeAliasDialog.js'
 import { RemoveWorktreeDialog } from '../dialogs/RemoveWorktreeDialog.js'
 import { SettingsDialog } from '../dialogs/SettingsDialog.js'
 import { ProjectSettingsDialog } from '../dialogs/ProjectSettingsDialog.js'
@@ -25,6 +26,7 @@ export function AppLayout() {
 
       {activeDialog === 'addProject' && <AddProjectDialog />}
       {activeDialog === 'createWorktree' && <CreateWorktreeDialog />}
+      {activeDialog === 'editWorktreeAlias' && <EditWorktreeAliasDialog />}
       {activeDialog === 'removeWorktree' && <RemoveWorktreeDialog />}
       {activeDialog === 'settings' && <SettingsDialog />}
       {activeDialog === 'projectSettings' && <ProjectSettingsDialog />}

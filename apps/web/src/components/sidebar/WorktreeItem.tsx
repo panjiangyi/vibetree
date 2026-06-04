@@ -1,4 +1,4 @@
-import { GitBranch, Terminal, Trash2 } from 'lucide-react'
+import { GitBranch, Pencil, Terminal, Trash2 } from 'lucide-react'
 import type { Worktree } from '@vibetree/shared'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useUiStore } from '../../stores/ui.store.js'
@@ -34,7 +34,7 @@ export function WorktreeItem({ worktree }: Props) {
           )}
           <span className="text-sm truncate">{displayName}</span>
         </div>
-        {worktree.displayName && worktree.branch && !worktree.isMain && (
+        {worktree.displayName && worktree.branch && (
           <div className="text-xs app-subtle truncate ml-5">
             {worktree.branch}
           </div>
@@ -54,6 +54,16 @@ export function WorktreeItem({ worktree }: Props) {
       </div>
 
       <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            openDialog('editWorktreeAlias', { worktree })
+          }}
+          className="app-icon-button"
+          title="Edit alias"
+        >
+          <Pencil className="w-3 h-3" />
+        </button>
         {!worktree.isMain && (
           <button
             onClick={(e) => {

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { LayoutItem } from 'react-grid-layout'
+import { getCompactor } from 'react-grid-layout/core'
 import type { TerminalSession } from '@vibetree/shared'
 
 const STORAGE_KEY = 'vibetree.gridLayouts'
@@ -10,6 +11,7 @@ const MIGRATION_KEY = 'vibetree.gridLayouts.tiled.v1'
 // flush with the workspace area (no downward overflow / scrolling).
 export const GRID_COLS = 12
 export const GRID_ROWS = 12
+const layoutCompactor = getCompactor('vertical')
 
 /**
  * Arrange `ids` into a balanced grid of tiles that completely fills the
@@ -74,6 +76,18 @@ function layoutsEqual(a: readonly LayoutItem[], b: readonly LayoutItem[]): boole
   }
 
   return true
+}
+
+function normalizeLayout(layout: readonly LayoutItem[]): LayoutItem[] {
+  const withDefaults = layout.map((item) => ({
+    ...item,
+    x: Math.max(0, Math.min(item.x, GRID_COLS - item.w)),
+    y: Math.max(0, item.y),
+    minW: item.minW ?? 2,
+    minH: item.minH ?? 2,
+  }))
+
+  return layoutCompactor.compact(withDefaults, GRID_COLS).map((item) => ({ ...item }))
 }
 
 function loadLayouts(): Record<string, LayoutItem[]> {
@@ -143,11 +157,12 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
 
   setLayoutForWorktree: (worktreeId, layout) => {
     set((state) => {
+      const normalized = normalizeLayout(layout)
       const currentLayout = state.layoutsByWorktreeId[worktreeId] ?? []
-      if (layoutsEqual(currentLayout, layout)) {
+      if (layoutsEqual(currentLayout, normalized)) {
         return state
       }
-      const newLayouts = { ...state.layoutsByWorktreeId, [worktreeId]: layout }
+      const newLayouts = { ...state.layoutsByWorktreeId, [worktreeId]: normalized }
       saveLayouts(newLayouts)
       return { layoutsByWorktreeId: newLayouts }
     })
@@ -214,11 +229,11 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
           continue
         }
 
-        const tiled = tileLayout(orderedIds(filtered))
-        if (!layoutsEqual(filtered, tiled)) {
+        const normalized = normalizeLayout(filtered)
+        if (!layoutsEqual(filtered, normalized)) {
           changed = true
         }
-        nextLayouts[worktreeId] = tiled
+        nextLayouts[worktreeId] = normalized
       }
 
       const activeWorktreeId =
