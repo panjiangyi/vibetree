@@ -532,6 +532,7 @@ export default function MobileTerminalQuickBall({
     <Draggable
       nodeRef={nodeRef}
       position={ballState.position}
+      cancel=".quick-ball-action"
       onStart={handleDragStart}
       onDrag={handleDrag}
       onStop={handleDragStop}
@@ -613,17 +614,101 @@ type QuickBallActionButtonProps = {
 }
 
 function QuickBallActionButton({ action, edge, isExpanded, index, ring }: QuickBallActionButtonProps) {
+  const pointerStartRef = useRef<{ id: number; x: number; y: number } | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const suppressNextClickRef = useRef(false)
+  const lastDirectActionAtRef = useRef(0)
+
+  const triggerDirectAction = useCallback(() => {
+    const now = Date.now()
+    if (now - lastDirectActionAtRef.current < 240) return
+
+    lastDirectActionAtRef.current = now
+    suppressNextClickRef.current = true
+    action.onClick()
+    window.setTimeout(() => {
+      suppressNextClickRef.current = false
+    }, 420)
+  }, [action])
+
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false
+      return
+    }
+
+    action.onClick()
+  }
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    if (event.pointerType === 'mouse') return
+
+    pointerStartRef.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    }
+  }
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    if (event.pointerType === 'mouse') return
+
+    const start = pointerStartRef.current
+    pointerStartRef.current = null
+    if (!start || start.id !== event.pointerId) return
+
+    const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y)
+    if (distance > 8) return
+
+    event.preventDefault()
+    triggerDirectAction()
+  }
+
+  const handlePointerCancel = () => {
+    pointerStartRef.current = null
+  }
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    const touch = event.changedTouches[0]
+    touchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null
+  }
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    const touch = event.changedTouches[0]
+    const start = touchStartRef.current
+    touchStartRef.current = null
+    if (!touch || !start) return
+
+    const distance = Math.hypot(touch.clientX - start.x, touch.clientY - start.y)
+    if (distance > 8) return
+
+    event.preventDefault()
+    triggerDirectAction()
+  }
+
+  const handleTouchCancel = () => {
+    touchStartRef.current = null
+  }
+
   return (
     <button
       type="button"
       aria-label={action.label}
       title={action.label}
-      onClick={(event) => {
-        event.stopPropagation()
-        action.onClick()
-      }}
-      className="pointer-events-auto absolute left-0 top-0 z-10 flex flex-col items-center justify-center rounded-full border px-1 shadow-lg app-panel-strong app-hover"
-      style={getQuickActionStyle(edge, ring, index, isExpanded)}
+      onClick={handleClick}
+      onPointerCancel={handlePointerCancel}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onTouchCancel={handleTouchCancel}
+      onTouchEnd={handleTouchEnd}
+      onTouchStart={handleTouchStart}
+      className="quick-ball-action pointer-events-auto absolute left-0 top-0 z-10 flex flex-col items-center justify-center rounded-full border px-1 shadow-lg app-panel-strong app-hover"
+      style={{ ...getQuickActionStyle(edge, ring, index, isExpanded), touchAction: 'manipulation' }}
     >
       {action.icon}
       <span className="max-w-full truncate text-[8px] font-medium leading-none">
