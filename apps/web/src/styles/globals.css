@@ -4,6 +4,8 @@
 
 :root {
   font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --app-viewport-height: 100dvh;
+  --app-viewport-offset-top: 0px;
   --color-bg: #f3f5f8;
   --color-panel: #ffffff;
   --color-panel-strong: #f7f9fc;
@@ -80,7 +82,8 @@ body {
 @layer components {
   .app-root {
     @apply flex h-screen w-screen flex-col;
-    height: 100dvh;
+    height: var(--app-viewport-height);
+    padding-top: var(--app-viewport-offset-top);
   }
 
   .app-panel {
