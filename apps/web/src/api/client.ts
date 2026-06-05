@@ -1,11 +1,7 @@
-const configuredApiBase = import.meta.env.VITE_API_BASE
+const configuredApiBase = import.meta.env.VITE_API_BASE?.trim()
 
 export function getApiBase(): string {
-  return localStorage.getItem('vibetree.apiBase') ?? configuredApiBase ?? window.location.origin
-}
-
-export function getDefaultApiBase(): string {
-  return configuredApiBase ?? window.location.origin
+  return configuredApiBase || ''
 }
 
 export async function apiFetch<T>(
@@ -19,12 +15,17 @@ export async function apiFetch<T>(
 
   const res = await fetch(`${getApiBase()}${path}`, {
     ...options,
+    credentials: 'same-origin',
     headers,
   })
 
   if (!res.ok) {
     const body = await res.json().catch(() => null)
     throw new Error(body?.error?.message ?? 'Request failed')
+  }
+
+  if (res.status === 204) {
+    return undefined as T
   }
 
   return res.json()

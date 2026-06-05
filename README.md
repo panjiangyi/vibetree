@@ -68,12 +68,13 @@ VibeTree is designed for trusted local development:
 
 - Listens only on `127.0.0.1` by default
 - `pnpm build-and-start` binds to `0.0.0.0` for same-LAN phone access
-- No authentication or token system
+- Single-user login is required via credentials stored in the root `.env`
+- Session cookies are browser-session scoped, so reopening the browser requires logging in again
 - No arbitrary command execution API
 - All Git operations go through a whitelist
 - Path operations are sandboxed to worktree directories
 
-**Do not expose VibeTree to public or untrusted networks.** The web app includes access to local project terminals.
+This remains an application-level login around local project terminals. Treat any public exposure with care and add your own outer transport and access controls if you publish it beyond a trusted environment.
 
 ## Configuration
 
@@ -84,6 +85,8 @@ Environment variables (all optional):
 | `VIBETREE_HOST` | `127.0.0.1` | Server bind address |
 | `VIBETREE_PORT` | `3767` | Server port |
 | `VIBETREE_DB` | `~/.vibetree/vibetree.sqlite` | Database path |
+| `VIBETREE_AUTH_USERNAME` | none | Required login username |
+| `VIBETREE_AUTH_PASSWORD` | none | Required login password |
 
 ## License
 

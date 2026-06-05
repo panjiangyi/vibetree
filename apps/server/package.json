@@ -13,11 +13,13 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.0.1",
     "@fastify/static": "^9.1.3",
     "@fastify/websocket": "^11.0.2",
     "@vibetree/shared": "workspace:*",
     "better-sqlite3": "^11.9.1",
+    "dotenv": "^17.4.2",
     "execa": "^9.5.2",
     "fastify": "^5.3.3",
     "nanoid": "^5.1.5",

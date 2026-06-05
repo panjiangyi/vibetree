@@ -1,10 +1,14 @@
-import { Menu, PanelLeftClose, PanelLeftOpen, Terminal, Plus, RefreshCw, Settings, FolderOpen } from 'lucide-react'
+import { Menu, PanelLeftClose, PanelLeftOpen, Terminal, Plus, RefreshCw, Settings, FolderOpen, LogOut } from 'lucide-react'
+import { useAuthStore } from '../../stores/auth.store.js'
+import { useLayoutStore } from '../../stores/layout.store.js'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
 import { projectColorForIndex } from '../../utils/projectColor.js'
+import { terminalSocket } from '../../ws/terminal-socket.js'
 
 export function Header() {
+  const logout = useAuthStore((s) => s.logout)
   const openDialog = useUiStore((s) => s.openDialog)
   const toggleMobileSidebar = useUiStore((s) => s.toggleMobileSidebar)
   const toggleDesktopSidebar = useUiStore((s) => s.toggleDesktopSidebar)
@@ -35,6 +39,35 @@ export function Header() {
   const handleRefreshAll = async () => {
     for (const project of projects) {
       await refreshProject(project.id)
+    }
+  }
+
+  const handleLogout = async () => {
+    terminalSocket.disconnect()
+    try {
+      await logout()
+    } finally {
+      useProjectStore.setState({
+        projects: [],
+        worktreesByProjectId: {},
+        loading: false,
+        error: null,
+      })
+      useTerminalStore.setState({
+        terminals: [],
+        activeScopeId: null,
+        loading: false,
+        error: null,
+      })
+      useLayoutStore.setState({
+        activeScopeId: null,
+        terminalIdToTitle: {},
+      })
+      useUiStore.setState({
+        activeDialog: null,
+        activeDialogData: undefined,
+        isMobileSidebarOpen: false,
+      })
     }
   }
 
@@ -133,6 +166,14 @@ export function Header() {
         className="app-icon-button p-2"
       >
         <Settings className="w-4 h-4" />
+      </button>
+
+      <button
+        onClick={() => void handleLogout()}
+        className="app-icon-button p-2"
+        title="Log out"
+      >
+        <LogOut className="w-4 h-4" />
       </button>
     </header>
   )

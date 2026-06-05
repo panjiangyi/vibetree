@@ -63,7 +63,18 @@ async function createContext() {
       host: '127.0.0.1',
       port: 3767,
       databasePath: path.join(rootPath, 'app.db'),
+      trustProxy: true,
       defaultShell: '/bin/bash',
+      auth: {
+        username: 'test-user',
+        password: 'test-pass',
+        sessionTtlMs: 60_000,
+        ipFailureLimit: 5,
+        ipWindowMs: 60_000,
+        globalFailureLimit: 10,
+        globalCooldownMs: 60_000,
+        cookieName: 'vibetree_session',
+      },
       terminal: {
         cols: 120,
         rows: 30,

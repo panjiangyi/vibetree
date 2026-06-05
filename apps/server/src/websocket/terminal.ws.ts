@@ -3,13 +3,17 @@ import type WebSocket from 'ws'
 import { sendWs, parseWsMessage } from './protocol.js'
 import type { TerminalService } from '../modules/terminals/terminal.service.js'
 import type { PtyManager } from '../modules/pty/pty.manager.js'
+import type { AuthService } from '../modules/auth/auth.service.js'
 
 export function registerTerminalWebSocket(
   app: FastifyInstance,
   terminalService: TerminalService,
-  ptyManager: PtyManager
+  ptyManager: PtyManager,
+  authService: AuthService
 ) {
-  app.get('/ws/terminal', { websocket: true }, (ws: WebSocket) => {
+  app.get('/ws/terminal', { websocket: true }, (ws: WebSocket, request) => {
+    const session = authService.requireSession(request)
+    authService.attachSocket(session.sessionId, ws)
 
     ws.on('message', async (raw) => {
       try {
@@ -80,6 +84,7 @@ export function registerTerminalWebSocket(
     })
 
     ws.on('close', () => {
+      authService.detachSocket(ws)
       ptyManager.detachClientFromAll(ws)
     })
   })

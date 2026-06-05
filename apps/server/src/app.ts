@@ -1,5 +1,5 @@
 import Fastify from 'fastify'
-import cors from '@fastify/cors'
+import cookie from '@fastify/cookie'
 import websocket from '@fastify/websocket'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -11,8 +11,10 @@ import { createTerminalRepository } from './db/repositories/terminal.repository.
 import { createProjectService } from './modules/projects/project.service.js'
 import { createWorktreeService } from './modules/worktrees/worktree.service.js'
 import { createTerminalService } from './modules/terminals/terminal.service.js'
+import { createAuthService } from './modules/auth/auth.service.js'
 import { createPtyManager } from './modules/pty/pty.manager.js'
 import { createFsService } from './modules/fs/fs.service.js'
+import { registerAuthRoutes } from './routes/auth.routes.js'
 import { registerHealthRoutes } from './routes/health.routes.js'
 import { registerProjectRoutes } from './routes/projects.routes.js'
 import { registerWorktreeRoutes } from './routes/worktrees.routes.js'
@@ -26,6 +28,7 @@ import { normalizeAbsoluteRequestUrl } from './utils/request-url.js'
 export async function buildApp(config: AppConfig) {
   const app = Fastify({
     logger: true,
+    trustProxy: config.trustProxy,
   })
 
   // Initialize database
@@ -55,23 +58,38 @@ export async function buildApp(config: AppConfig) {
     worktreeService.syncProjectWorktrees.bind(worktreeService)
   )
   const fsService = createFsService()
+  const authService = createAuthService(config)
 
   // Directory terminals are ephemeral; worktree terminals can be recovered.
   terminalRepo.deleteDirectorySessions()
   terminalRepo.markWorktreeRunningAsDisconnected()
 
   // Register plugins
-  // @fastify/cors defaults to `methods: 'GET,HEAD,POST'`, which blocks the
-  // DELETE (close terminal) and PATCH (rename terminal) requests the web app
-  // makes cross-origin from the Vite dev server. Allow the full set explicitly.
-  await app.register(cors, {
-    origin: true,
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  })
+  await app.register(cookie)
   await app.register(websocket)
 
   app.addHook('onRequest', async (request) => {
     request.raw.url = normalizeAbsoluteRequestUrl(request.raw.url ?? '')
+
+    const routePath = request.raw.url ?? ''
+    if (routePath === '/health' || routePath.startsWith('/api/auth/')) {
+      return
+    }
+
+    if (routePath === '/ws/terminal') {
+      authService.requireSession(request)
+      authService.enforceSameOrigin(request)
+      return
+    }
+
+    if (!routePath.startsWith('/api/')) {
+      return
+    }
+
+    authService.requireSession(request)
+    if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS') {
+      authService.enforceSameOrigin(request)
+    }
   })
 
   // Error handler
@@ -109,12 +127,13 @@ export async function buildApp(config: AppConfig) {
 
   // Register routes
   await registerHealthRoutes(app)
+  await registerAuthRoutes(app, authService)
   await registerProjectRoutes(app, projectService)
   await registerWorktreeRoutes(app, worktreeService)
   await registerTerminalRoutes(app, terminalService)
   await registerFsRoutes(app, fsService)
   await registerDebugRoutes(app)
-  registerTerminalWebSocket(app, terminalService, ptyManager)
+  registerTerminalWebSocket(app, terminalService, ptyManager, authService)
 
   // Serve static files in production
   const webDistPath = path.resolve(import.meta.dirname, '../../web/dist')

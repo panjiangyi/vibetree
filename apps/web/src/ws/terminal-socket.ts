@@ -9,14 +9,16 @@ class TerminalSocket {
   private queue: TerminalClientMessage[] = []
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
   private connecting = false
+  private manualDisconnect = false
 
   connect() {
     if (this.connecting) return
     if (this.ws && this.ws.readyState === WebSocket.OPEN) return
 
+    this.manualDisconnect = false
     this.connecting = true
     const wsBase = getApiBase().replace(/^http/, 'ws')
-    const url = `${wsBase}/ws/terminal`
+    const url = `${wsBase || window.location.origin.replace(/^http/, 'ws')}/ws/terminal`
 
     this.ws = new WebSocket(url)
 
@@ -38,7 +40,9 @@ class TerminalSocket {
     this.ws.onclose = () => {
       this.ws = null
       this.connecting = false
-      this.reconnectTimeout = setTimeout(() => this.connect(), 1000)
+      if (!this.manualDisconnect) {
+        this.reconnectTimeout = setTimeout(() => this.connect(), 1000)
+      }
     }
 
     this.ws.onerror = () => {
@@ -82,6 +86,7 @@ class TerminalSocket {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout)
     }
+    this.manualDisconnect = true
     this.connecting = false
     this.ws?.close()
     this.ws = null

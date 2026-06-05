@@ -148,6 +148,21 @@ export type UpdateTerminalInput = {
   title?: string
 }
 
+export type LoginInput = {
+  username: string
+  password: string
+}
+
+export type AuthSessionResponse =
+  | {
+      authenticated: false
+    }
+  | {
+      authenticated: true
+      username: string
+      expiresAt: string
+    }
+
 export type ApiErrorPayload = {
   error: {
     code: string
