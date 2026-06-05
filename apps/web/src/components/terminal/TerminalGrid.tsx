@@ -3,7 +3,20 @@ import type { ReactNode } from 'react'
 import { ReactGridLayout } from 'react-grid-layout/legacy'
 import type { LayoutItem } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
-import { ChevronDown, ChevronUp, Clipboard, Copy, Eraser, Plus, Send, SkipBack, Square, X } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  Clipboard,
+  Copy,
+  Eraser,
+  Plus,
+  Send,
+  SkipBack,
+  Square,
+  TextCursorInput,
+  Undo2,
+  X,
+} from 'lucide-react'
 import { GRID_COLS, GRID_ROWS, useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { terminalSocket } from '../../ws/terminal-socket.js'
@@ -317,6 +330,16 @@ function MobileTerminalActions({ terminalId, terminalActions }: MobileTerminalAc
               label="清屏"
               icon={<Eraser className="w-4 h-4" />}
               onClick={() => sendInput('\x0c')}
+            />
+            <ActionButton
+              label="输入 clear"
+              icon={<TextCursorInput className="w-4 h-4" />}
+              onClick={() => sendInput('clear\r')}
+            />
+            <ActionButton
+              label="撤销本行"
+              icon={<Undo2 className="w-4 h-4" />}
+              onClick={() => sendInput('\x05\x15')}
             />
             <ActionButton
               label="上一条"

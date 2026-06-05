@@ -18,6 +18,7 @@ import { registerProjectRoutes } from './routes/projects.routes.js'
 import { registerWorktreeRoutes } from './routes/worktrees.routes.js'
 import { registerTerminalRoutes } from './routes/terminals.routes.js'
 import { registerFsRoutes } from './routes/fs.routes.js'
+import { registerDebugRoutes } from './routes/debug.routes.js'
 import { registerTerminalWebSocket } from './websocket/terminal.ws.js'
 import { AppError } from './utils/app-error.js'
 
@@ -106,6 +107,7 @@ export async function buildApp(config: AppConfig) {
   await registerWorktreeRoutes(app, worktreeService)
   await registerTerminalRoutes(app, terminalService)
   await registerFsRoutes(app, fsService)
+  await registerDebugRoutes(app)
   registerTerminalWebSocket(app, terminalService, ptyManager)
 
   // Serve static files in production
