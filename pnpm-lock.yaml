@@ -101,6 +101,9 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.7(react@19.2.7)
+      react-draggable:
+        specifier: ^4.6.0
+        version: 4.6.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react-grid-layout:
         specifier: ^2.2.3
         version: 2.2.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
