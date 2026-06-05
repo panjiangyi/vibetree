@@ -1,4 +1,4 @@
-import { Menu, Terminal, Plus, RefreshCw, Settings } from 'lucide-react'
+import { Menu, PanelLeftClose, PanelLeftOpen, Terminal, Plus, RefreshCw, Settings } from 'lucide-react'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
@@ -7,6 +7,8 @@ import { projectColorForIndex } from '../../utils/projectColor.js'
 export function Header() {
   const openDialog = useUiStore((s) => s.openDialog)
   const toggleMobileSidebar = useUiStore((s) => s.toggleMobileSidebar)
+  const toggleDesktopSidebar = useUiStore((s) => s.toggleDesktopSidebar)
+  const isDesktopSidebarCollapsed = useUiStore((s) => s.isDesktopSidebarCollapsed)
   const terminals = useTerminalStore((s) => s.terminals)
   const activeWorktreeId = useTerminalStore((s) => s.activeWorktreeId)
   const projects = useProjectStore((s) => s.projects)
@@ -50,6 +52,15 @@ export function Header() {
         <Terminal className="w-5 h-5 app-success" />
         <span className="hidden md:inline">VibeTree</span>
       </div>
+
+      <button
+        onClick={toggleDesktopSidebar}
+        className="app-icon-button p-2 hidden md:inline-flex"
+        aria-label={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
+        {isDesktopSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+      </button>
 
       {activeProject && (
         <div

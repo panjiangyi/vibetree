@@ -7,11 +7,18 @@ import { useUiStore } from '../../stores/ui.store.js'
 type Props = {
   project: Project
   worktree: Worktree
+  collapsed?: boolean
   mobile?: boolean
   onSelected?: () => void
 }
 
-export function WorktreeItem({ project, worktree, mobile = false, onSelected }: Props) {
+export function WorktreeItem({
+  project,
+  worktree,
+  collapsed = false,
+  mobile = false,
+  onSelected,
+}: Props) {
   const openTerminalForWorktree = useTerminalStore((s) => s.openTerminalForWorktree)
   const createTerminal = useTerminalStore((s) => s.createTerminal)
   const setActiveWorktree = useTerminalStore((s) => s.setActiveWorktree)
@@ -53,9 +60,10 @@ export function WorktreeItem({ project, worktree, mobile = false, onSelected }: 
     <div
       className={`flex items-center gap-2 px-3 app-hover cursor-pointer group rounded-md mx-1 ${mobile ? 'py-2.5' : 'py-1.5'}`}
       onClick={handleOpen}
+      title={collapsed ? [displayName, worktree.branch].filter(Boolean).join('\n') : undefined}
     >
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className={`flex gap-1.5 ${collapsed ? 'items-center' : 'items-start'}`}>
           {worktree.isMain ? (
             <span className="app-badge">
               root
@@ -63,16 +71,22 @@ export function WorktreeItem({ project, worktree, mobile = false, onSelected }: 
           ) : (
             <GitBranch className="w-3.5 h-3.5 app-subtle flex-shrink-0" />
           )}
-          <span className="text-sm truncate">{displayName}</span>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="text-sm break-words leading-5 whitespace-normal">
+                {displayName}
+              </div>
+              {worktree.displayName && worktree.branch && (
+                <div className="text-xs app-subtle break-all leading-4 mt-0.5">
+                  {worktree.branch}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        {worktree.displayName && worktree.branch && (
-          <div className="text-xs app-subtle truncate ml-5">
-            {worktree.branch}
-          </div>
-        )}
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className={`flex items-center gap-1 ${collapsed ? 'hidden' : ''}`}>
         {worktree.isDirty && (
           <span className="text-xs app-warning">dirty</span>
         )}
@@ -89,7 +103,7 @@ export function WorktreeItem({ project, worktree, mobile = false, onSelected }: 
         )}
       </div>
 
-      <div className={`${mobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center gap-0.5`}>
+      <div className={`${mobile || collapsed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center gap-0.5`}>
         <button
           onClick={(e) => {
             e.stopPropagation()

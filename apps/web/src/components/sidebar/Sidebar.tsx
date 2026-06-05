@@ -1,18 +1,20 @@
 import { useProjectStore } from '../../stores/project.store.js'
 import { ProjectItem } from './ProjectItem.js'
-import { FolderOpen, Plus, RefreshCw } from 'lucide-react'
+import { FolderOpen, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw } from 'lucide-react'
 import { useUiStore } from '../../stores/ui.store.js'
 
 type Props = {
   mobile?: boolean
+  collapsed?: boolean
   onWorktreeSelected?: () => void
 }
 
-export function Sidebar({ mobile = false, onWorktreeSelected }: Props) {
+export function Sidebar({ mobile = false, collapsed = false, onWorktreeSelected }: Props) {
   const projects = useProjectStore((s) => s.projects)
   const worktreesByProjectId = useProjectStore((s) => s.worktreesByProjectId)
   const refreshProject = useProjectStore((s) => s.refreshProject)
   const openDialog = useUiStore((s) => s.openDialog)
+  const toggleDesktopSidebar = useUiStore((s) => s.toggleDesktopSidebar)
 
   const handleRefreshAll = async () => {
     for (const project of projects) {
@@ -26,9 +28,20 @@ export function Sidebar({ mobile = false, onWorktreeSelected }: Props) {
   }
 
   return (
-    <aside className={`${mobile ? 'h-full w-full' : 'w-72'} border-r app-panel flex flex-col`}>
-      <div className="px-3 py-2 text-xs uppercase app-subtle font-medium">
-        Projects
+    <aside className="h-full w-full border-r app-panel flex flex-col">
+      <div className="flex items-center justify-between px-3 py-2">
+        <div className="text-xs uppercase app-subtle font-medium">Projects</div>
+        {!mobile && (
+          <button
+            type="button"
+            onClick={toggleDesktopSidebar}
+            className="app-icon-button"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
+        )}
       </div>
 
       {mobile && (
@@ -68,6 +81,7 @@ export function Sidebar({ mobile = false, onWorktreeSelected }: Props) {
               key={project.id}
               project={project}
               worktrees={worktreesByProjectId[project.id] ?? []}
+              collapsed={collapsed}
               mobile={mobile}
               onWorktreeSelected={onWorktreeSelected}
             />
