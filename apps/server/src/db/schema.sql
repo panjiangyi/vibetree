@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS projects (
   worktree_base_path TEXT NOT NULL,
   main_branch TEXT NOT NULL DEFAULT 'main',
   setup_script TEXT,
+  dev_server_script TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

@@ -128,6 +128,10 @@ export function createTerminalService(
         terminalRepo.markExited(terminalId, exitCode)
       })
 
+      if (input.initialCommand) {
+        ptyManager.write(terminalId, `${input.initialCommand}\n`)
+      }
+
       return terminalRepo.findById(terminalId)!
     },
 

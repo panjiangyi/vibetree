@@ -238,8 +238,10 @@ export function createWorktreeService(
 
       if (project.setupScript) {
         try {
-          const terminal = terminalService.createTerminal(result.id, { title: 'setup' })
-          terminalService.writeToTerminal(terminal.id, `${project.setupScript}\n`)
+          terminalService.createTerminal(result.id, {
+            title: 'setup',
+            initialCommand: project.setupScript,
+          })
         } catch {
           // Non-fatal: setup script execution failed
         }

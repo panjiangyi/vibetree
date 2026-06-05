@@ -7,6 +7,7 @@ const createTerminalSchema = z.object({
   title: z.string().optional(),
   cols: z.number().optional(),
   rows: z.number().optional(),
+  initialCommand: z.string().optional(),
 })
 
 const updateTerminalSchema = z.object({

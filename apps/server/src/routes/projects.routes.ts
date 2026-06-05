@@ -9,12 +9,14 @@ const createProjectSchema = z.object({
   name: z.string().optional(),
   mainBranch: z.string().optional(),
   setupScript: z.string().optional(),
+  devServerScript: z.string().optional(),
 })
 
 const updateProjectSchema = z.object({
   name: z.string().optional(),
   mainBranch: z.string().optional(),
   setupScript: z.string().nullable().optional(),
+  devServerScript: z.string().nullable().optional(),
 })
 
 export async function registerProjectRoutes(

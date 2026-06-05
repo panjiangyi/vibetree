@@ -61,7 +61,6 @@ async function createService(ctx: TestContext) {
     createTerminal: () => {
       throw new Error('Unexpected terminal creation')
     },
-    writeToTerminal: () => {},
   } as unknown as Parameters<typeof createWorktreeService>[3]
   const service = createWorktreeService(projectRepo, worktreeRepo, terminalRepo, terminalService)
 
@@ -73,6 +72,7 @@ async function createService(ctx: TestContext) {
     worktreeBasePath: ctx.worktreeBasePath,
     mainBranch: 'main',
     setupScript: null,
+    devServerScript: null,
     createdAt: now,
     updatedAt: now,
   }

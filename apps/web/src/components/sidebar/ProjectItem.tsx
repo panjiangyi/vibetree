@@ -72,6 +72,7 @@ export function ProjectItem({ project, worktrees, mobile = false, onWorktreeSele
           {worktrees.map((worktree) => (
             <WorktreeItem
               key={worktree.id}
+              project={project}
               worktree={worktree}
               mobile={mobile}
               onSelected={onWorktreeSelected}

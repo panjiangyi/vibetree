@@ -15,6 +15,9 @@ function runMigrations(db: Database.Database): void {
   if (!projectCols.has('setup_script')) {
     db.exec('ALTER TABLE projects ADD COLUMN setup_script TEXT')
   }
+  if (!projectCols.has('dev_server_script')) {
+    db.exec('ALTER TABLE projects ADD COLUMN dev_server_script TEXT')
+  }
 
   const worktreeCols = getColumnNames(db, 'worktrees')
   if (!worktreeCols.has('display_name')) {

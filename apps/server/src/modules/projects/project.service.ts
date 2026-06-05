@@ -55,6 +55,7 @@ export function createProjectService(
         worktreeBasePath: defaultWorktreeBasePath(projectName),
         mainBranch,
         setupScript: input.setupScript ?? null,
+        devServerScript: input.devServerScript ?? null,
         createdAt: now,
         updatedAt: now,
       }

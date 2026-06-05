@@ -8,6 +8,7 @@ type ProjectRow = {
   worktree_base_path: string
   main_branch: string
   setup_script: string | null
+  dev_server_script: string | null
   created_at: string
   updated_at: string
 }
@@ -20,6 +21,7 @@ function rowToProject(row: ProjectRow): Project {
     worktreeBasePath: row.worktree_base_path,
     mainBranch: row.main_branch,
     setupScript: row.setup_script,
+    devServerScript: row.dev_server_script,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -30,11 +32,17 @@ export function createProjectRepository(db: Database.Database) {
   const findByIdStmt = db.prepare('SELECT * FROM projects WHERE id = ?')
   const findByRepoPathStmt = db.prepare('SELECT * FROM projects WHERE repo_path = ?')
   const insertStmt = db.prepare(`
-    INSERT INTO projects (id, name, repo_path, worktree_base_path, main_branch, setup_script, created_at, updated_at)
-    VALUES (@id, @name, @repoPath, @worktreeBasePath, @mainBranch, @setupScript, @createdAt, @updatedAt)
+    INSERT INTO projects (id, name, repo_path, worktree_base_path, main_branch, setup_script, dev_server_script, created_at, updated_at)
+    VALUES (@id, @name, @repoPath, @worktreeBasePath, @mainBranch, @setupScript, @devServerScript, @createdAt, @updatedAt)
   `)
   const updateStmt = db.prepare(`
-    UPDATE projects SET name = @name, main_branch = @mainBranch, setup_script = @setupScript, updated_at = @updatedAt WHERE id = @id
+    UPDATE projects
+    SET name = @name,
+        main_branch = @mainBranch,
+        setup_script = @setupScript,
+        dev_server_script = @devServerScript,
+        updated_at = @updatedAt
+    WHERE id = @id
   `)
   const deleteStmt = db.prepare('DELETE FROM projects WHERE id = ?')
 
@@ -62,6 +70,7 @@ export function createProjectRepository(db: Database.Database) {
         worktreeBasePath: project.worktreeBasePath,
         mainBranch: project.mainBranch,
         setupScript: project.setupScript,
+        devServerScript: project.devServerScript,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
       })
@@ -76,6 +85,10 @@ export function createProjectRepository(db: Database.Database) {
         name: input.name ?? project.name,
         mainBranch: input.mainBranch ?? project.mainBranch,
         setupScript: input.setupScript === undefined ? project.setupScript : input.setupScript,
+        devServerScript:
+          input.devServerScript === undefined
+            ? project.devServerScript
+            : input.devServerScript,
         updatedAt: new Date().toISOString(),
       })
     },

@@ -1,18 +1,23 @@
-import { GitBranch, Pencil, Terminal, Trash2 } from 'lucide-react'
-import type { Worktree } from '@vibetree/shared'
+import { GitBranch, Pencil, Play, Terminal, Trash2 } from 'lucide-react'
+import type { Project, Worktree } from '@vibetree/shared'
+import { useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useUiStore } from '../../stores/ui.store.js'
 
 type Props = {
+  project: Project
   worktree: Worktree
   mobile?: boolean
   onSelected?: () => void
 }
 
-export function WorktreeItem({ worktree, mobile = false, onSelected }: Props) {
+export function WorktreeItem({ project, worktree, mobile = false, onSelected }: Props) {
   const openTerminalForWorktree = useTerminalStore((s) => s.openTerminalForWorktree)
+  const createTerminal = useTerminalStore((s) => s.createTerminal)
+  const setActiveWorktree = useTerminalStore((s) => s.setActiveWorktree)
   const terminals = useTerminalStore((s) => s.terminals)
   const openDialog = useUiStore((s) => s.openDialog)
+  const addPaneForTerminal = useLayoutStore((s) => s.addPaneForTerminal)
 
   const runningCount = terminals.filter(
     (t) => t.worktreeId === worktree.id && t.status === 'running'
@@ -29,6 +34,18 @@ export function WorktreeItem({ worktree, mobile = false, onSelected }: Props) {
         : 'app-subtle'
   const handleOpen = async () => {
     await openTerminalForWorktree(worktree.id)
+    onSelected?.()
+  }
+
+  const handleStartDevServer = async () => {
+    if (!project.devServerScript) return
+
+    setActiveWorktree(worktree.id)
+    const terminal = await createTerminal(worktree.id, {
+      title: 'dev server',
+      initialCommand: project.devServerScript,
+    })
+    addPaneForTerminal(worktree.id, terminal.id, terminal.title)
     onSelected?.()
   }
 
@@ -73,6 +90,17 @@ export function WorktreeItem({ worktree, mobile = false, onSelected }: Props) {
       </div>
 
       <div className={`${mobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center gap-0.5`}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            void handleStartDevServer()
+          }}
+          className="app-icon-button"
+          title={project.devServerScript ? 'Start dev server' : 'Configure dev server script first'}
+          disabled={!project.devServerScript}
+        >
+          <Play className="w-3 h-3" />
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation()

@@ -5,6 +5,7 @@ export type Project = {
   worktreeBasePath: string
   mainBranch: string
   setupScript: string | null
+  devServerScript: string | null
   createdAt: string
   updatedAt: string
 }
@@ -90,12 +91,14 @@ export type CreateProjectInput = {
   name?: string
   mainBranch?: string
   setupScript?: string
+  devServerScript?: string
 }
 
 export type UpdateProjectInput = {
   name?: string
   mainBranch?: string
   setupScript?: string | null
+  devServerScript?: string | null
 }
 
 export type CreateWorktreeInput = {
@@ -114,6 +117,7 @@ export type CreateTerminalInput = {
   title?: string
   cols?: number
   rows?: number
+  initialCommand?: string
 }
 
 export type UpdateTerminalInput = {

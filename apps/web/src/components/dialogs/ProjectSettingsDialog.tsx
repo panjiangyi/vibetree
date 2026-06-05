@@ -14,6 +14,7 @@ export function ProjectSettingsDialog() {
   const [name, setName] = useState(project.name)
   const [mainBranch, setMainBranch] = useState(project.mainBranch)
   const [setupScript, setSetupScript] = useState(project.setupScript || '')
+  const [devServerScript, setDevServerScript] = useState(project.devServerScript || '')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -27,6 +28,7 @@ export function ProjectSettingsDialog() {
         name: name.trim(),
         mainBranch: mainBranch.trim(),
         setupScript: setupScript.trim() || null,
+        devServerScript: devServerScript.trim() || null,
       })
       closeDialog()
     } catch (err) {
@@ -89,6 +91,22 @@ export function ProjectSettingsDialog() {
             />
             <p className="text-xs app-subtle mt-1">
               Runs automatically after creating a new worktree
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5">
+              Dev Server Script <span className="app-subtle">(optional)</span>
+            </label>
+            <textarea
+              value={devServerScript}
+              onChange={(e) => setDevServerScript(e.target.value)}
+              placeholder="pnpm dev"
+              rows={3}
+              className="app-input font-mono text-sm"
+            />
+            <p className="text-xs app-subtle mt-1">
+              Used by the play button on each worktree row
             </p>
           </div>
 
