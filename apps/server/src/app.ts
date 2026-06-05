@@ -55,8 +55,9 @@ export async function buildApp(config: AppConfig) {
   )
   const fsService = createFsService()
 
-  // Mark all running terminals as disconnected on startup
-  terminalRepo.markRunningAsDisconnected()
+  // Directory terminals are ephemeral; worktree terminals can be recovered.
+  terminalRepo.deleteDirectorySessions()
+  terminalRepo.markWorktreeRunningAsDisconnected()
 
   // Register plugins
   // @fastify/cors defaults to `methods: 'GET,HEAD,POST'`, which blocks the

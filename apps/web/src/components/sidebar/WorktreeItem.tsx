@@ -21,7 +21,7 @@ export function WorktreeItem({
 }: Props) {
   const openTerminalForWorktree = useTerminalStore((s) => s.openTerminalForWorktree)
   const createTerminal = useTerminalStore((s) => s.createTerminal)
-  const setActiveWorktree = useTerminalStore((s) => s.setActiveWorktree)
+  const setActiveScope = useTerminalStore((s) => s.setActiveScope)
   const terminals = useTerminalStore((s) => s.terminals)
   const openDialog = useUiStore((s) => s.openDialog)
   const addPaneForTerminal = useLayoutStore((s) => s.addPaneForTerminal)
@@ -47,7 +47,7 @@ export function WorktreeItem({
   const handleStartDevServer = async () => {
     if (!project.devServerScript) return
 
-    setActiveWorktree(worktree.id)
+    setActiveScope(worktree.id)
     const terminal = await createTerminal(worktree.id, {
       title: 'dev server',
       initialCommand: project.devServerScript,

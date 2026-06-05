@@ -7,6 +7,7 @@ type DialogType =
   | 'editWorktreeAlias'
   | 'settings'
   | 'projectSettings'
+  | 'openDirectoryTerminal'
   | null
 
 type UiStore = {

@@ -2,9 +2,119 @@ import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
 
+type TableInfoRow = {
+  name: string
+  notnull: number
+}
+
+function getColumnInfo(db: Database.Database, table: string): TableInfoRow[] {
+  return db.prepare(`PRAGMA table_info(${table})`).all() as TableInfoRow[]
+}
+
 function getColumnNames(db: Database.Database, table: string): Set<string> {
-  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]
-  return new Set(columns.map((c) => c.name))
+  return new Set(getColumnInfo(db, table).map((c) => c.name))
+}
+
+function ensureIndexes(db: Database.Database): void {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_worktrees_project_id ON worktrees(project_id)')
+  db.exec('CREATE INDEX IF NOT EXISTS idx_terminal_sessions_worktree_id ON terminal_sessions(worktree_id)')
+  db.exec('CREATE INDEX IF NOT EXISTS idx_terminal_sessions_scope_id ON terminal_sessions(scope_id)')
+  db.exec('CREATE INDEX IF NOT EXISTS idx_terminal_sessions_status ON terminal_sessions(status)')
+}
+
+function migrateTerminalSessionsToScopedModel(db: Database.Database): void {
+  const terminalCols = getColumnInfo(db, 'terminal_sessions')
+  if (terminalCols.length === 0) return
+
+  const terminalColNames = new Set(terminalCols.map((c) => c.name))
+  const projectIdCol = terminalCols.find((col) => col.name === 'project_id')
+  const worktreeIdCol = terminalCols.find((col) => col.name === 'worktree_id')
+  const needsRebuild =
+    !terminalColNames.has('scope_type') ||
+    !terminalColNames.has('scope_id') ||
+    !terminalColNames.has('scope_label') ||
+    projectIdCol?.notnull === 1 ||
+    worktreeIdCol?.notnull === 1
+
+  if (!needsRebuild) return
+
+  db.exec('BEGIN')
+  try {
+    db.exec(`
+      CREATE TABLE terminal_sessions_v2 (
+        id TEXT PRIMARY KEY,
+        project_id TEXT,
+        worktree_id TEXT,
+        scope_type TEXT NOT NULL,
+        scope_id TEXT NOT NULL,
+        scope_label TEXT NOT NULL,
+        title TEXT NOT NULL,
+        shell TEXT NOT NULL,
+        cwd TEXT NOT NULL,
+        status TEXT NOT NULL,
+        pid INTEGER,
+        cols INTEGER NOT NULL DEFAULT 120,
+        rows INTEGER NOT NULL DEFAULT 30,
+        exit_code INTEGER,
+        last_active_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (worktree_id) REFERENCES worktrees(id) ON DELETE CASCADE
+      )
+    `)
+
+    db.exec(`
+      INSERT INTO terminal_sessions_v2 (
+        id,
+        project_id,
+        worktree_id,
+        scope_type,
+        scope_id,
+        scope_label,
+        title,
+        shell,
+        cwd,
+        status,
+        pid,
+        cols,
+        rows,
+        exit_code,
+        last_active_at,
+        created_at,
+        updated_at
+      )
+      SELECT
+        id,
+        project_id,
+        worktree_id,
+        'worktree',
+        worktree_id,
+        title,
+        title,
+        shell,
+        cwd,
+        status,
+        pid,
+        cols,
+        rows,
+        exit_code,
+        last_active_at,
+        created_at,
+        updated_at
+      FROM terminal_sessions
+    `)
+
+    db.exec('DROP TABLE terminal_sessions')
+    db.exec('ALTER TABLE terminal_sessions_v2 RENAME TO terminal_sessions')
+    db.exec('CREATE INDEX idx_terminal_sessions_worktree_id ON terminal_sessions(worktree_id)')
+    db.exec('CREATE INDEX idx_terminal_sessions_scope_id ON terminal_sessions(scope_id)')
+    db.exec('CREATE INDEX idx_terminal_sessions_status ON terminal_sessions(status)')
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
+  }
 }
 
 function runMigrations(db: Database.Database): void {
@@ -23,6 +133,8 @@ function runMigrations(db: Database.Database): void {
   if (!worktreeCols.has('display_name')) {
     db.exec('ALTER TABLE worktrees ADD COLUMN display_name TEXT')
   }
+
+  migrateTerminalSessionsToScopedModel(db)
 }
 
 export function createDatabase(databasePath: string): Database.Database {
@@ -38,6 +150,7 @@ export function createDatabase(databasePath: string): Database.Database {
 
   db.exec(schema)
   runMigrations(db)
+  ensureIndexes(db)
 
   return db
 }

@@ -3,20 +3,17 @@ import type { LayoutItem } from 'react-grid-layout'
 import { getCompactor } from 'react-grid-layout/core'
 import type { TerminalSession } from '@vibetree/shared'
 
-const STORAGE_KEY = 'vibetree.gridLayouts'
+const STORAGE_KEY = 'vibetree.gridLayouts.byScope.v1'
+const LEGACY_STORAGE_KEY = 'vibetree.gridLayouts'
+const ACTIVE_SCOPE_KEY = 'vibetree.activeScopeId'
+const LEGACY_ACTIVE_SCOPE_KEY = 'vibetree.activeWorktreeId'
 const MIGRATION_KEY = 'vibetree.gridLayouts.tiled.v1'
+const STORAGE_MIGRATION_KEY = 'vibetree.gridLayouts.byScope.migrated.v1'
 
-// Fixed grid the panes are tiled into. The TerminalGrid sizes a row so that
-// exactly GRID_ROWS rows fill the available height, which keeps the grid
-// flush with the workspace area (no downward overflow / scrolling).
 export const GRID_COLS = 12
 export const GRID_ROWS = 12
 const layoutCompactor = getCompactor('vertical')
 
-/**
- * Arrange `ids` into a balanced grid of tiles that completely fills the
- * GRID_COLS x GRID_ROWS area with no gaps or overlaps.
- */
 function tileLayout(ids: string[]): LayoutItem[] {
   const n = ids.length
   if (n === 0) return []
@@ -49,7 +46,6 @@ function tileLayout(ids: string[]): LayoutItem[] {
   return items
 }
 
-/** Order pane ids roughly top-to-bottom, left-to-right by their position. */
 function orderedIds(layout: LayoutItem[]): string[] {
   return [...layout]
     .sort((a, b) => (a.y - b.y) || (a.x - b.x))
@@ -94,17 +90,21 @@ function loadLayouts(): Record<string, LayoutItem[]> {
   let layouts: Record<string, LayoutItem[]> = {}
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    layouts = stored ? JSON.parse(stored) : {}
+    if (stored) {
+      layouts = JSON.parse(stored)
+    } else if (!localStorage.getItem(STORAGE_MIGRATION_KEY)) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+      layouts = legacy ? JSON.parse(legacy) : {}
+      localStorage.setItem(STORAGE_MIGRATION_KEY, '1')
+      saveLayouts(layouts)
+    }
   } catch {
     return {}
   }
 
-  // One-time migration: older builds stacked panes vertically (x:0, growing y)
-  // which overflowed the workspace. Re-tile any existing layouts once so users
-  // immediately get the filled grid. Manual adjustments made afterwards persist.
   if (!localStorage.getItem(MIGRATION_KEY)) {
-    for (const worktreeId of Object.keys(layouts)) {
-      layouts[worktreeId] = tileLayout(orderedIds(layouts[worktreeId]))
+    for (const scopeId of Object.keys(layouts)) {
+      layouts[scopeId] = tileLayout(orderedIds(layouts[scopeId]))
     }
     saveLayouts(layouts)
     try {
@@ -117,60 +117,64 @@ function loadLayouts(): Record<string, LayoutItem[]> {
   return layouts
 }
 
+function loadActiveScopeId(): string | null {
+  return localStorage.getItem(ACTIVE_SCOPE_KEY) ?? localStorage.getItem(LEGACY_ACTIVE_SCOPE_KEY)
+}
+
 function saveLayouts(layouts: Record<string, LayoutItem[]>): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(layouts))
 }
 
 type LayoutStore = {
-  activeWorktreeId: string | null
-  layoutsByWorktreeId: Record<string, LayoutItem[]>
+  activeScopeId: string | null
+  layoutsByScopeId: Record<string, LayoutItem[]>
   terminalIdToTitle: Record<string, string>
 
-  setActiveWorktree: (worktreeId: string | null) => void
+  setActiveScope: (scopeId: string | null) => void
   getCurrentLayout: () => LayoutItem[]
-  setLayoutForWorktree: (worktreeId: string, layout: LayoutItem[]) => void
-  addPaneForTerminal: (worktreeId: string, terminalId: string, title: string) => void
-  removePane: (worktreeId: string, terminalId: string) => void
+  setLayoutForScope: (scopeId: string, layout: LayoutItem[]) => void
+  addPaneForTerminal: (scopeId: string, terminalId: string, title: string) => void
+  removePane: (scopeId: string, terminalId: string) => void
   setTerminalTitle: (terminalId: string, title: string) => void
   reconcileWithTerminals: (terminals: TerminalSession[]) => void
 }
 
 export const useLayoutStore = create<LayoutStore>((set, get) => ({
-  activeWorktreeId: localStorage.getItem('vibetree.activeWorktreeId'),
-  layoutsByWorktreeId: loadLayouts(),
+  activeScopeId: loadActiveScopeId(),
+  layoutsByScopeId: loadLayouts(),
   terminalIdToTitle: {},
 
-  setActiveWorktree: (worktreeId) => {
-    set({ activeWorktreeId: worktreeId })
-    if (worktreeId) {
-      localStorage.setItem('vibetree.activeWorktreeId', worktreeId)
+  setActiveScope: (scopeId) => {
+    set({ activeScopeId: scopeId })
+    if (scopeId) {
+      localStorage.setItem(ACTIVE_SCOPE_KEY, scopeId)
     } else {
-      localStorage.removeItem('vibetree.activeWorktreeId')
+      localStorage.removeItem(ACTIVE_SCOPE_KEY)
     }
   },
 
   getCurrentLayout: () => {
-    const { activeWorktreeId, layoutsByWorktreeId } = get()
-    if (!activeWorktreeId) return []
-    return layoutsByWorktreeId[activeWorktreeId] ?? []
+    const { activeScopeId, layoutsByScopeId } = get()
+    if (!activeScopeId) return []
+    return layoutsByScopeId[activeScopeId] ?? []
   },
 
-  setLayoutForWorktree: (worktreeId, layout) => {
+  setLayoutForScope: (scopeId, layout) => {
     set((state) => {
       const normalized = normalizeLayout(layout)
-      const currentLayout = state.layoutsByWorktreeId[worktreeId] ?? []
+      const currentLayout = state.layoutsByScopeId[scopeId] ?? []
       if (layoutsEqual(currentLayout, normalized)) {
         return state
       }
-      const newLayouts = { ...state.layoutsByWorktreeId, [worktreeId]: normalized }
+      const newLayouts = { ...state.layoutsByScopeId, [scopeId]: normalized }
       saveLayouts(newLayouts)
-      return { layoutsByWorktreeId: newLayouts }
+      return { layoutsByScopeId: newLayouts }
     })
   },
 
-  addPaneForTerminal: (worktreeId, terminalId, title) => {
-    const { layoutsByWorktreeId, terminalIdToTitle } = get()
-    const currentLayout = layoutsByWorktreeId[worktreeId] ?? []
+  addPaneForTerminal: (scopeId, terminalId, title) => {
+    const { layoutsByScopeId, terminalIdToTitle } = get()
+    const currentLayout = layoutsByScopeId[scopeId] ?? []
     const newTitleMap = { ...terminalIdToTitle, [terminalId]: title }
 
     const exists = currentLayout.some((item) => item.i === terminalId)
@@ -179,28 +183,26 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       return
     }
 
-    // Re-tile all panes (existing + new) so they fill the workspace evenly.
     const newLayout = tileLayout([...orderedIds(currentLayout), terminalId])
-    const newLayouts = { ...layoutsByWorktreeId, [worktreeId]: newLayout }
+    const newLayouts = { ...layoutsByScopeId, [scopeId]: newLayout }
     saveLayouts(newLayouts)
-    set({ layoutsByWorktreeId: newLayouts, terminalIdToTitle: newTitleMap })
+    set({ layoutsByScopeId: newLayouts, terminalIdToTitle: newTitleMap })
   },
 
-  removePane: (worktreeId, terminalId) => {
-    const { layoutsByWorktreeId } = get()
-    const currentLayout = layoutsByWorktreeId[worktreeId]
+  removePane: (scopeId, terminalId) => {
+    const { layoutsByScopeId } = get()
+    const currentLayout = layoutsByScopeId[scopeId]
     if (!currentLayout) return
 
     const remaining = currentLayout.filter((item) => item.i !== terminalId)
-    const newLayouts = { ...layoutsByWorktreeId }
+    const newLayouts = { ...layoutsByScopeId }
     if (remaining.length > 0) {
-      // Re-tile the remaining panes so they expand to fill the freed space.
-      newLayouts[worktreeId] = tileLayout(orderedIds(remaining))
+      newLayouts[scopeId] = tileLayout(orderedIds(remaining))
     } else {
-      delete newLayouts[worktreeId]
+      delete newLayouts[scopeId]
     }
     saveLayouts(newLayouts)
-    set({ layoutsByWorktreeId: newLayouts })
+    set({ layoutsByScopeId: newLayouts })
   },
 
   setTerminalTitle: (terminalId, title) => {
@@ -219,7 +221,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       let changed = false
       const nextLayouts: Record<string, LayoutItem[]> = {}
 
-      for (const [worktreeId, layout] of Object.entries(state.layoutsByWorktreeId)) {
+      for (const [scopeId, layout] of Object.entries(state.layoutsByScopeId)) {
         const filtered = layout.filter((item) => terminalIds.has(item.i))
         if (filtered.length !== layout.length) {
           changed = true
@@ -233,17 +235,17 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
         if (!layoutsEqual(filtered, normalized)) {
           changed = true
         }
-        nextLayouts[worktreeId] = normalized
+        nextLayouts[scopeId] = normalized
       }
 
-      const activeWorktreeId =
-        state.activeWorktreeId && nextLayouts[state.activeWorktreeId]
-          ? state.activeWorktreeId
+      const activeScopeId =
+        state.activeScopeId && nextLayouts[state.activeScopeId]
+          ? state.activeScopeId
           : Object.keys(nextLayouts)[0] ?? null
 
       if (
         !changed &&
-        activeWorktreeId === state.activeWorktreeId &&
+        activeScopeId === state.activeScopeId &&
         Object.keys(titleMap).length === Object.keys(state.terminalIdToTitle).length &&
         Object.entries(titleMap).every(([id, title]) => state.terminalIdToTitle[id] === title)
       ) {
@@ -251,15 +253,15 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       }
 
       saveLayouts(nextLayouts)
-      if (activeWorktreeId) {
-        localStorage.setItem('vibetree.activeWorktreeId', activeWorktreeId)
+      if (activeScopeId) {
+        localStorage.setItem(ACTIVE_SCOPE_KEY, activeScopeId)
       } else {
-        localStorage.removeItem('vibetree.activeWorktreeId')
+        localStorage.removeItem(ACTIVE_SCOPE_KEY)
       }
 
       return {
-        activeWorktreeId,
-        layoutsByWorktreeId: nextLayouts,
+        activeScopeId,
+        layoutsByScopeId: nextLayouts,
         terminalIdToTitle: titleMap,
       }
     })

@@ -19,6 +19,18 @@ lan_ip="$(node -e "const os=require('node:os'); for (const entries of Object.val
 
 pnpm build
 
+echo "Running database migrations..."
+node --input-type=module <<'EOF'
+import { createDatabase } from './apps/server/dist/db/database.js'
+import { getConfig } from './apps/server/dist/config.js'
+
+const config = getConfig()
+const db = createDatabase(config.databasePath)
+db.close()
+
+console.log(`Database migrated at ${config.databasePath}`)
+EOF
+
 echo
 echo "VibeTree server binding to ${VIBETREE_HOST}:${PORT}"
 if [ -n "${lan_ip:-}" ]; then

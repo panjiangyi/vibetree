@@ -1,28 +1,42 @@
 import { create } from 'zustand'
-import type { TerminalSession, CreateTerminalInput } from '@vibetree/shared'
+import type {
+  TerminalSession,
+  CreateTerminalInput,
+  OpenDirectoryTerminalInput,
+} from '@vibetree/shared'
 import * as terminalsApi from '../api/terminals.api.js'
 import { useLayoutStore } from './layout.store.js'
+import { terminalSocket } from '../ws/terminal-socket.js'
 
 type TerminalStore = {
   terminals: TerminalSession[]
-  activeWorktreeId: string | null
+  activeScopeId: string | null
   loading: boolean
   error: string | null
 
   loadTerminals: () => Promise<void>
   openTerminalForWorktree: (worktreeId: string) => Promise<void>
+  openDirectoryTerminal: (input: OpenDirectoryTerminalInput) => Promise<void>
   createNewTerminalForWorktree: (worktreeId: string) => Promise<void>
+  createNewTerminalForScope: (scopeId: string) => Promise<void>
   createTerminal: (worktreeId: string, input?: CreateTerminalInput) => Promise<TerminalSession>
   closeTerminal: (terminalId: string) => Promise<void>
-  closeWorktreeTerminals: (worktreeId: string) => Promise<void>
+  closeScopeTerminals: (scopeId: string) => Promise<void>
   renameTerminal: (terminalId: string, title: string) => Promise<void>
   restartTerminal: (terminalId: string) => Promise<void>
-  setActiveWorktree: (worktreeId: string | null) => void
+  setActiveScope: (scopeId: string | null) => void
+  handleTerminalExit: (terminalId: string, exitCode: number | null) => void
+}
+
+function pickFallbackScopeId(terminals: TerminalSession[], removedScopeId: string): string | null {
+  const visibleScopeIds = Array.from(new Set(terminals.map((terminal) => terminal.scopeId)))
+  const currentIndex = visibleScopeIds.indexOf(removedScopeId)
+  return visibleScopeIds[currentIndex + 1] ?? visibleScopeIds[currentIndex - 1] ?? null
 }
 
 export const useTerminalStore = create<TerminalStore>((set, get) => ({
   terminals: [],
-  activeWorktreeId: localStorage.getItem('vibetree.activeWorktreeId'),
+  activeScopeId: localStorage.getItem('vibetree.activeScopeId') ?? localStorage.getItem('vibetree.activeWorktreeId'),
   loading: false,
   error: null,
 
@@ -40,7 +54,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   openTerminalForWorktree: async (worktreeId: string) => {
     const { terminals } = get()
 
-    get().setActiveWorktree(worktreeId)
+    get().setActiveScope(worktreeId)
 
     const running = terminals
       .filter((t) => t.worktreeId === worktreeId && t.status === 'running')
@@ -55,10 +69,53 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     useLayoutStore.getState().addPaneForTerminal(worktreeId, terminal.id, terminal.title)
   },
 
+  openDirectoryTerminal: async (input) => {
+    set({ loading: true, error: null })
+    try {
+      const result = await terminalsApi.openDirectoryTerminal(input)
+      const { terminal } = result
+      set((state) => ({
+        terminals: state.terminals.some((item) => item.id === terminal.id)
+          ? state.terminals.map((item) => (item.id === terminal.id ? terminal : item))
+          : [...state.terminals, terminal],
+        loading: false,
+      }))
+      get().setActiveScope(terminal.scopeId)
+      useLayoutStore.getState().addPaneForTerminal(terminal.scopeId, terminal.id, terminal.title)
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false })
+      throw error
+    }
+  },
+
   createNewTerminalForWorktree: async (worktreeId: string) => {
-    get().setActiveWorktree(worktreeId)
+    get().setActiveScope(worktreeId)
     const terminal = await get().createTerminal(worktreeId)
     useLayoutStore.getState().addPaneForTerminal(worktreeId, terminal.id, terminal.title)
+  },
+
+  createNewTerminalForScope: async (scopeId: string) => {
+    const existing = get().terminals.find((terminal) => terminal.scopeId === scopeId)
+    if (!existing) {
+      throw new Error('Scope not found')
+    }
+
+    get().setActiveScope(scopeId)
+
+    let terminal: TerminalSession
+    if (existing.scopeType === 'directory') {
+      terminal = await terminalsApi.createDirectoryTerminal({ scopeId })
+      set((state) => ({
+        terminals: [...state.terminals, terminal],
+      }))
+    } else {
+      if (!existing.worktreeId) {
+        throw new Error('Worktree not found')
+      }
+      terminal = await get().createTerminal(existing.worktreeId)
+    }
+
+    useLayoutStore.getState().addPaneForTerminal(scopeId, terminal.id, terminal.title)
   },
 
   createTerminal: async (worktreeId: string, input: CreateTerminalInput = {}) => {
@@ -77,17 +134,12 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   },
 
   closeTerminal: async (terminalId: string) => {
-    // Resolve the worktree before mutating state. Fall back to the active
-    // worktree so panes that exist only in the persisted layout (e.g. the
-    // backend was restarted) can still be closed.
     const terminal = get().terminals.find((t) => t.id === terminalId)
-    const worktreeId = terminal?.worktreeId ?? get().activeWorktreeId
+    const scopeId = terminal?.scopeId ?? get().activeScopeId
 
     try {
       await terminalsApi.deleteTerminal(terminalId)
     } catch (error) {
-      // The terminal may already be gone on the backend; surface the error but
-      // still remove the pane locally so the close button always works.
       set({ error: (error as Error).message })
     }
 
@@ -95,25 +147,23 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       terminals: state.terminals.filter((t) => t.id !== terminalId),
     }))
 
-    if (worktreeId) {
-      useLayoutStore.getState().removePane(worktreeId, terminalId)
+    if (scopeId) {
+      useLayoutStore.getState().removePane(scopeId, terminalId)
+      const remaining = get().terminals.filter((item) => item.scopeId === scopeId)
+      if (remaining.length === 0 && get().activeScopeId === scopeId) {
+        get().setActiveScope(pickFallbackScopeId(get().terminals, scopeId))
+      }
     }
   },
 
-  closeWorktreeTerminals: async (worktreeId: string) => {
-    const { terminals, activeWorktreeId } = get()
-    const visibleWorktreeIds = Array.from(new Set(terminals.map((terminal) => terminal.worktreeId)))
+  closeScopeTerminals: async (scopeId: string) => {
+    const { terminals, activeScopeId } = get()
     const terminalIds = terminals
-      .filter((terminal) => terminal.worktreeId === worktreeId)
+      .filter((terminal) => terminal.scopeId === scopeId)
       .map((terminal) => terminal.id)
 
-    if (activeWorktreeId === worktreeId) {
-      const currentIndex = visibleWorktreeIds.indexOf(worktreeId)
-      const fallbackWorktreeId =
-        visibleWorktreeIds[currentIndex + 1] ??
-        visibleWorktreeIds[currentIndex - 1] ??
-        null
-      get().setActiveWorktree(fallbackWorktreeId)
+    if (activeScopeId === scopeId) {
+      get().setActiveScope(pickFallbackScopeId(terminals, scopeId))
     }
 
     await Promise.all(terminalIds.map((terminalId) => get().closeTerminal(terminalId)))
@@ -146,13 +196,44 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     }
   },
 
-  setActiveWorktree: (worktreeId: string | null) => {
-    set({ activeWorktreeId: worktreeId })
-    useLayoutStore.getState().setActiveWorktree(worktreeId)
-    if (worktreeId) {
-      localStorage.setItem('vibetree.activeWorktreeId', worktreeId)
+  setActiveScope: (scopeId: string | null) => {
+    set({ activeScopeId: scopeId })
+    useLayoutStore.getState().setActiveScope(scopeId)
+    if (scopeId) {
+      localStorage.setItem('vibetree.activeScopeId', scopeId)
     } else {
-      localStorage.removeItem('vibetree.activeWorktreeId')
+      localStorage.removeItem('vibetree.activeScopeId')
     }
   },
+
+  handleTerminalExit: (terminalId, exitCode) => {
+    const terminal = get().terminals.find((item) => item.id === terminalId)
+    if (!terminal) {
+      return
+    }
+
+    if (terminal.scopeType === 'directory') {
+      set((state) => ({
+        terminals: state.terminals.filter((item) => item.id !== terminalId),
+      }))
+      useLayoutStore.getState().removePane(terminal.scopeId, terminalId)
+      const remaining = get().terminals.filter((item) => item.scopeId === terminal.scopeId)
+      if (remaining.length === 0 && get().activeScopeId === terminal.scopeId) {
+        get().setActiveScope(pickFallbackScopeId(get().terminals, terminal.scopeId))
+      }
+      return
+    }
+
+    set((state) => ({
+      terminals: state.terminals.map((item) => item.id === terminalId
+        ? { ...item, status: 'exited', exitCode }
+        : item),
+    }))
+  },
 }))
+
+terminalSocket.onMessage((message) => {
+  if (message.type === 'exit') {
+    useTerminalStore.getState().handleTerminalExit(message.terminalId, message.exitCode)
+  }
+})

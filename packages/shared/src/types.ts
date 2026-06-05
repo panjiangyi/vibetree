@@ -68,10 +68,15 @@ export type TerminalStatus =
   | 'killed'
   | 'disconnected'
 
+export type TerminalScopeType = 'worktree' | 'directory'
+
 export type TerminalSession = {
   id: string
-  projectId: string
-  worktreeId: string
+  projectId: string | null
+  worktreeId: string | null
+  scopeType: TerminalScopeType
+  scopeId: string
+  scopeLabel: string
   title: string
   shell: string
   cwd: string
@@ -118,6 +123,25 @@ export type CreateTerminalInput = {
   cols?: number
   rows?: number
   initialCommand?: string
+}
+
+export type OpenDirectoryTerminalInput = CreateTerminalInput & {
+  cwd: string
+}
+
+export type CreateDirectoryTerminalInput =
+  | (CreateTerminalInput & {
+      cwd: string
+      scopeId?: never
+    })
+  | (CreateTerminalInput & {
+      cwd?: never
+      scopeId: string
+    })
+
+export type OpenDirectoryTerminalResult = {
+  terminal: TerminalSession
+  reused: boolean
 }
 
 export type UpdateTerminalInput = {

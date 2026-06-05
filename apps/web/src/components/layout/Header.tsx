@@ -1,4 +1,4 @@
-import { Menu, PanelLeftClose, PanelLeftOpen, Terminal, Plus, RefreshCw, Settings } from 'lucide-react'
+import { Menu, PanelLeftClose, PanelLeftOpen, Terminal, Plus, RefreshCw, Settings, FolderOpen } from 'lucide-react'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
@@ -10,25 +10,25 @@ export function Header() {
   const toggleDesktopSidebar = useUiStore((s) => s.toggleDesktopSidebar)
   const isDesktopSidebarCollapsed = useUiStore((s) => s.isDesktopSidebarCollapsed)
   const terminals = useTerminalStore((s) => s.terminals)
-  const activeWorktreeId = useTerminalStore((s) => s.activeWorktreeId)
+  const activeScopeId = useTerminalStore((s) => s.activeScopeId)
   const projects = useProjectStore((s) => s.projects)
   const worktreesByProjectId = useProjectStore((s) => s.worktreesByProjectId)
   const refreshProject = useProjectStore((s) => s.refreshProject)
 
   const runningCount = terminals.filter((t) => t.status === 'running').length
+  const activeTerminal = activeScopeId
+    ? terminals.find((terminal) => terminal.scopeId === activeScopeId)
+    : null
 
-  // Which project does the currently active worktree belong to? The sidebar
-  // is hidden on mobile, so this is the only on-screen project context there.
-  const activeProjectIndex = activeWorktreeId
+  const activeProjectIndex = activeTerminal?.scopeType === 'worktree'
     ? projects.findIndex((p) =>
-        (worktreesByProjectId[p.id] ?? []).some((wt) => wt.id === activeWorktreeId)
+        (worktreesByProjectId[p.id] ?? []).some((wt) => wt.id === activeTerminal.worktreeId)
       )
     : -1
   const activeProject = activeProjectIndex >= 0 ? projects[activeProjectIndex] : null
-  const activeWorktree = activeProject
-    ? (worktreesByProjectId[activeProject.id] ?? []).find((wt) => wt.id === activeWorktreeId)
+  const activeWorktree = activeProject && activeTerminal?.worktreeId
+    ? (worktreesByProjectId[activeProject.id] ?? []).find((wt) => wt.id === activeTerminal.worktreeId)
     : null
-  // Prefer the alias, then the branch name, then the raw worktree name.
   const activeWorktreeLabel =
     activeWorktree?.displayName || activeWorktree?.branch || activeWorktree?.name || null
 
@@ -62,7 +62,7 @@ export function Header() {
         {isDesktopSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
       </button>
 
-      {activeProject && (
+      {activeTerminal?.scopeType === 'worktree' && activeProject && (
         <div
           className="md:hidden flex items-center gap-1.5 min-w-0 text-sm"
           title={activeWorktreeLabel ? `${activeProject.name} / ${activeWorktreeLabel}` : activeProject.name}
@@ -81,12 +81,27 @@ export function Header() {
         </div>
       )}
 
+      {activeTerminal?.scopeType === 'directory' && (
+        <div className="md:hidden flex items-center gap-1.5 min-w-0 text-sm" title={activeTerminal.cwd}>
+          <FolderOpen className="w-4 h-4 app-warning shrink-0" />
+          <span className="app-muted truncate">{activeTerminal.scopeLabel}</span>
+        </div>
+      )}
+
       <button
         onClick={() => openDialog('addProject')}
         className="app-button-secondary hidden md:flex items-center gap-1 py-1.5"
       >
         <Plus className="w-4 h-4" />
         Add Project
+      </button>
+
+      <button
+        onClick={() => openDialog('openDirectoryTerminal')}
+        className="app-button-secondary hidden md:flex items-center gap-1 py-1.5"
+      >
+        <FolderOpen className="w-4 h-4" />
+        Open Terminal
       </button>
 
       <button
@@ -104,6 +119,14 @@ export function Header() {
         <span className="hidden sm:inline">Running: </span>
         <span>{runningCount}</span>
       </div>
+
+      <button
+        onClick={() => openDialog('openDirectoryTerminal')}
+        className="app-icon-button p-2 md:hidden"
+        title="Open terminal"
+      >
+        <FolderOpen className="w-4 h-4" />
+      </button>
 
       <button
         onClick={() => openDialog('settings')}

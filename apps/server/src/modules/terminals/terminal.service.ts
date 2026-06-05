@@ -1,13 +1,22 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { nanoid } from 'nanoid'
-import type { TerminalSession, CreateTerminalInput, UpdateTerminalInput, Project, Worktree } from '@vibetree/shared'
+import type {
+  TerminalSession,
+  CreateTerminalInput,
+  UpdateTerminalInput,
+  Project,
+  Worktree,
+  OpenDirectoryTerminalInput,
+  CreateDirectoryTerminalInput,
+  OpenDirectoryTerminalResult,
+} from '@vibetree/shared'
 import {
   AppError,
   WORKTREE_NOT_FOUND,
   PROJECT_NOT_FOUND,
   WORKTREE_PATH_NOT_FOUND,
   TERMINAL_NOT_FOUND,
-  PTY_NOT_FOUND,
   INVALID_TERMINAL_STATUS,
 } from '../../utils/app-error.js'
 import type { createProjectRepository } from '../../db/repositories/project.repository.js'
@@ -15,12 +24,19 @@ import type { createWorktreeRepository } from '../../db/repositories/worktree.re
 import type { createTerminalRepository } from '../../db/repositories/terminal.repository.js'
 import type { AppConfig } from '../../config.js'
 import type { PtyManager } from '../pty/pty.manager.js'
+import { normalizePath } from '../security/path-safety.js'
 
 type ProjectRepo = ReturnType<typeof createProjectRepository>
 type WorktreeRepo = ReturnType<typeof createWorktreeRepository>
 type TerminalRepo = ReturnType<typeof createTerminalRepository>
 
-function defaultTerminalTitle(
+type DirectoryScope = {
+  cwd: string
+  scopeId: string
+  scopeLabel: string
+}
+
+function defaultWorktreeTerminalTitle(
   project: Project,
   worktree: Worktree,
   count: number
@@ -31,7 +47,14 @@ function defaultTerminalTitle(
   return `${project.name}/${worktree.name} #${count + 1}`
 }
 
-function buildTerminalEnv(project: Project, worktree: Worktree): Record<string, string> {
+function defaultDirectoryTerminalTitle(scopeLabel: string, count: number): string {
+  if (count === 0) {
+    return scopeLabel
+  }
+  return `${scopeLabel} #${count + 1}`
+}
+
+function buildWorktreeEnv(project: Project, worktree: Worktree): Record<string, string> {
   return {
     VIBETREE_PROJECT_ID: project.id,
     VIBETREE_PROJECT_NAME: project.name,
@@ -40,6 +63,36 @@ function buildTerminalEnv(project: Project, worktree: Worktree): Record<string, 
     VIBETREE_WORKTREE_NAME: worktree.name,
     VIBETREE_WORKTREE_PATH: worktree.path,
     VIBETREE_WORKTREE_BRANCH: worktree.branch ?? '',
+  }
+}
+
+function buildDirectoryEnv(scope: DirectoryScope): Record<string, string> {
+  return {
+    VIBETREE_SCOPE_TYPE: 'directory',
+    VIBETREE_SCOPE_ID: scope.scopeId,
+    VIBETREE_DIRECTORY_PATH: scope.cwd,
+  }
+}
+
+function resolveDirectoryScope(cwd: string): DirectoryScope {
+  if (!path.isAbsolute(cwd)) {
+    throw new AppError('INVALID_PATH', 'Path must be absolute')
+  }
+  if (!fs.existsSync(cwd)) {
+    throw new AppError('PATH_NOT_FOUND', 'Path does not exist')
+  }
+
+  const realPath = normalizePath(fs.realpathSync.native(cwd))
+  const stat = fs.statSync(realPath)
+  if (!stat.isDirectory()) {
+    throw new AppError('NOT_DIRECTORY', 'Path is not a directory')
+  }
+
+  const scopeLabel = path.basename(realPath) || realPath
+  return {
+    cwd: realPath,
+    scopeId: `dir:${realPath}`,
+    scopeLabel,
   }
 }
 
@@ -52,11 +105,45 @@ export function createTerminalService(
   ptyManager: PtyManager,
   config: AppConfig
 ) {
+  const attachExitHandler = (session: TerminalSession) => {
+    ptyManager.onExit(session.id, (exitCode) => {
+      if (session.scopeType === 'directory') {
+        terminalRepo.delete(session.id)
+        return
+      }
+      terminalRepo.markExited(session.id, exitCode)
+    })
+  }
+
+  const createStoredSession = (session: TerminalSession, env: Record<string, string>) => {
+    terminalRepo.insert(session)
+
+    const runtime = ptyManager.create({
+      terminalId: session.id,
+      shell: session.shell,
+      cwd: session.cwd,
+      cols: session.cols,
+      rows: session.rows,
+      env,
+    })
+
+    terminalRepo.updatePidAndStatus(session.id, runtime.pty.pid, 'running')
+    attachExitHandler(session)
+
+    return terminalRepo.findById(session.id)!
+  }
+
   return {
     reconcileTerminalStatuses(): void {
       const terminals = terminalRepo.findAll()
       for (const terminal of terminals) {
-        if (terminal.status === 'running' && !ptyManager.has(terminal.id)) {
+        if (terminal.status !== 'running' || ptyManager.has(terminal.id)) {
+          continue
+        }
+
+        if (terminal.scopeType === 'directory') {
+          terminalRepo.delete(terminal.id)
+        } else {
           terminalRepo.updateStatus(terminal.id, 'disconnected')
         }
       }
@@ -93,12 +180,16 @@ export function createTerminalService(
       const now = new Date().toISOString()
       const terminalId = `term_${nanoid()}`
       const count = terminalRepo.countByWorktreeId(worktreeId)
+      const scopeLabel = worktree.displayName || worktree.name
 
       const session: TerminalSession = {
         id: terminalId,
         projectId: project.id,
         worktreeId: worktree.id,
-        title: input.title ?? defaultTerminalTitle(project, worktree, count),
+        scopeType: 'worktree',
+        scopeId: worktree.id,
+        scopeLabel,
+        title: input.title ?? defaultWorktreeTerminalTitle(project, worktree, count),
         shell: input.shell ?? config.defaultShell,
         cwd: worktree.path,
         status: 'running',
@@ -111,28 +202,79 @@ export function createTerminalService(
         updatedAt: now,
       }
 
-      terminalRepo.insert(session)
-
-      const runtime = ptyManager.create({
-        terminalId,
-        shell: session.shell,
-        cwd: worktree.path,
-        cols: session.cols,
-        rows: session.rows,
-        env: buildTerminalEnv(project, worktree),
-      })
-
-      terminalRepo.updatePidAndStatus(terminalId, runtime.pty.pid, 'running')
-
-      ptyManager.onExit(terminalId, (exitCode) => {
-        terminalRepo.markExited(terminalId, exitCode)
-      })
-
+      const created = createStoredSession(session, buildWorktreeEnv(project, worktree))
       if (input.initialCommand) {
-        ptyManager.write(terminalId, `${input.initialCommand}\n`)
+        ptyManager.write(created.id, `${input.initialCommand}\n`)
+      }
+      return created
+    },
+
+    openDirectoryTerminal(input: OpenDirectoryTerminalInput): OpenDirectoryTerminalResult {
+      const scope = resolveDirectoryScope(input.cwd)
+      const existing = terminalRepo.findLatestRunningByScopeId(scope.scopeId)
+      if (existing) {
+        return {
+          terminal: existing,
+          reused: true,
+        }
       }
 
-      return terminalRepo.findById(terminalId)!
+      return {
+        terminal: this.createDirectoryTerminal({
+          cwd: scope.cwd,
+          shell: input.shell,
+          title: input.title,
+          cols: input.cols,
+          rows: input.rows,
+          initialCommand: input.initialCommand,
+        }),
+        reused: false,
+      }
+    },
+
+    createDirectoryTerminal(input: CreateDirectoryTerminalInput): TerminalSession {
+      const scope = typeof input.scopeId === 'string'
+        ? (() => {
+            const existing = terminalRepo.findByScopeId(input.scopeId)[0]
+            if (!existing || existing.scopeType !== 'directory') {
+              throw new AppError('DIRECTORY_SCOPE_NOT_FOUND', 'Directory scope not found')
+            }
+            return {
+              cwd: existing.cwd,
+              scopeId: existing.scopeId,
+              scopeLabel: existing.scopeLabel,
+            }
+          })()
+        : resolveDirectoryScope(input.cwd)
+
+      const now = new Date().toISOString()
+      const terminalId = `term_${nanoid()}`
+      const count = terminalRepo.countByScopeId(scope.scopeId)
+      const session: TerminalSession = {
+        id: terminalId,
+        projectId: null,
+        worktreeId: null,
+        scopeType: 'directory',
+        scopeId: scope.scopeId,
+        scopeLabel: scope.scopeLabel,
+        title: input.title ?? defaultDirectoryTerminalTitle(scope.scopeLabel, count),
+        shell: input.shell ?? config.defaultShell,
+        cwd: scope.cwd,
+        status: 'running',
+        pid: null,
+        cols: input.cols ?? config.terminal.cols,
+        rows: input.rows ?? config.terminal.rows,
+        exitCode: null,
+        lastActiveAt: now,
+        createdAt: now,
+        updatedAt: now,
+      }
+
+      const created = createStoredSession(session, buildDirectoryEnv(scope))
+      if (input.initialCommand) {
+        ptyManager.write(created.id, `${input.initialCommand}\n`)
+      }
+      return created
     },
 
     renameTerminal(id: string, input: UpdateTerminalInput): TerminalSession {
@@ -142,8 +284,7 @@ export function createTerminalService(
       }
 
       if (input.title) {
-        const now = new Date().toISOString()
-        terminalRepo.insert({ ...terminal, title: input.title, updatedAt: now })
+        terminalRepo.updateTitle(id, input.title)
       }
 
       return terminalRepo.findById(id)!
@@ -168,6 +309,10 @@ export function createTerminalService(
         throw new AppError(TERMINAL_NOT_FOUND, 'Terminal not found')
       }
 
+      if (terminal.scopeType !== 'worktree') {
+        throw new AppError(INVALID_TERMINAL_STATUS, 'Directory terminals cannot be restarted')
+      }
+
       if (!['exited', 'killed', 'disconnected'].includes(terminal.status)) {
         throw new AppError(
           INVALID_TERMINAL_STATUS,
@@ -175,11 +320,17 @@ export function createTerminalService(
         )
       }
 
+      if (!terminal.worktreeId) {
+        throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
+      }
       const worktree = worktreeRepo.findById(terminal.worktreeId)
       if (!worktree) {
         throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
       }
 
+      if (!terminal.projectId) {
+        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
+      }
       const project = projectRepo.findById(terminal.projectId)
       if (!project) {
         throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
@@ -189,21 +340,17 @@ export function createTerminalService(
         throw new AppError(WORKTREE_PATH_NOT_FOUND, 'Worktree path not found')
       }
 
-      // Create new PTY
       const runtime = ptyManager.create({
         terminalId: id,
         shell: terminal.shell,
         cwd: worktree.path,
         cols: terminal.cols,
         rows: terminal.rows,
-        env: buildTerminalEnv(project, worktree),
+        env: buildWorktreeEnv(project, worktree),
       })
 
       terminalRepo.updatePidAndStatus(id, runtime.pty.pid, 'running')
-
-      ptyManager.onExit(id, (exitCode) => {
-        terminalRepo.markExited(id, exitCode)
-      })
+      attachExitHandler(terminal)
 
       return terminalRepo.findById(id)!
     },

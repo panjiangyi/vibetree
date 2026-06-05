@@ -19,19 +19,15 @@ export function TerminalGrid() {
 }
 
 function DesktopTerminalGrid() {
-  const activeWorktreeId = useLayoutStore((s) => s.activeWorktreeId)
-  const layoutsByWorktreeId = useLayoutStore((s) => s.layoutsByWorktreeId)
-  const setLayoutForWorktree = useLayoutStore((s) => s.setLayoutForWorktree)
+  const activeScopeId = useLayoutStore((s) => s.activeScopeId)
+  const layoutsByScopeId = useLayoutStore((s) => s.layoutsByScopeId)
+  const setLayoutForScope = useLayoutStore((s) => s.setLayoutForScope)
   const terminalIdToTitle = useLayoutStore((s) => s.terminalIdToTitle)
   const closeTerminal = useTerminalStore((s) => s.closeTerminal)
 
   const [size, setSize] = useState({ width: 0, height: 0 })
   const observerRef = useRef<ResizeObserver | null>(null)
 
-  // Callback ref so measurement attaches whenever the container mounts. A plain
-  // mount effect would miss the case where the grid starts empty (container not
-  // rendered) and panes are added later — the observer would never attach and
-  // `size` would stay 0, leaving the grid invisible.
   const measureRef = useCallback((el: HTMLDivElement | null) => {
     observerRef.current?.disconnect()
     observerRef.current = null
@@ -47,12 +43,10 @@ function DesktopTerminalGrid() {
   }, [])
 
   const layout = useMemo(() => {
-    if (!activeWorktreeId) return []
-    return layoutsByWorktreeId[activeWorktreeId] ?? []
-  }, [activeWorktreeId, layoutsByWorktreeId])
+    if (!activeScopeId) return []
+    return layoutsByScopeId[activeScopeId] ?? []
+  }, [activeScopeId, layoutsByScopeId])
 
-  // Size a row so that exactly GRID_ROWS rows + margins fill the height, so the
-  // grid stays flush with the workspace (no overflow / scrolling).
   const rowHeight = useMemo(() => {
     if (size.height <= 0) return 30
     const usable = size.height - (GRID_ROWS - 1) * MARGIN - 2 * MARGIN
@@ -61,28 +55,28 @@ function DesktopTerminalGrid() {
 
   const handleLayoutChange = useCallback(
     (newLayout: readonly LayoutItem[]) => {
-      if (activeWorktreeId && newLayout.length > 0) {
-        setLayoutForWorktree(activeWorktreeId, [...newLayout])
+      if (activeScopeId && newLayout.length > 0) {
+        setLayoutForScope(activeScopeId, [...newLayout])
       }
     },
-    [activeWorktreeId, setLayoutForWorktree]
+    [activeScopeId, setLayoutForScope]
   )
 
   const handleClose = useCallback(
     (terminalId: string, e: React.MouseEvent) => {
       e.stopPropagation()
       e.preventDefault()
-      closeTerminal(terminalId)
+      void closeTerminal(terminalId)
     },
     [closeTerminal]
   )
 
-  if (!activeWorktreeId || layout.length === 0) {
+  if (!activeScopeId || layout.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center app-subtle">
         <div className="text-center">
           <p className="text-lg mb-2">No terminal opened</p>
-          <p className="text-sm">Select a worktree from the left sidebar to open a terminal.</p>
+          <p className="text-sm">Select a worktree or open a directory terminal.</p>
         </div>
       </div>
     )
@@ -139,20 +133,20 @@ function DesktopTerminalGrid() {
 }
 
 function MobileTerminalFocus() {
-  const activeWorktreeId = useLayoutStore((s) => s.activeWorktreeId)
-  const layoutsByWorktreeId = useLayoutStore((s) => s.layoutsByWorktreeId)
+  const activeScopeId = useLayoutStore((s) => s.activeScopeId)
+  const layoutsByScopeId = useLayoutStore((s) => s.layoutsByScopeId)
   const terminalIdToTitle = useLayoutStore((s) => s.terminalIdToTitle)
   const closeTerminal = useTerminalStore((s) => s.closeTerminal)
-  const createNewTerminalForWorktree = useTerminalStore((s) => s.createNewTerminalForWorktree)
+  const createNewTerminalForScope = useTerminalStore((s) => s.createNewTerminalForScope)
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
   const [terminalActions, setTerminalActions] = useState<TerminalViewActions | null>(null)
   const previousLayoutLengthRef = useRef(0)
-  const previousWorktreeIdRef = useRef<string | null>(null)
+  const previousScopeIdRef = useRef<string | null>(null)
 
   const layout = useMemo(() => {
-    if (!activeWorktreeId) return []
-    return layoutsByWorktreeId[activeWorktreeId] ?? []
-  }, [activeWorktreeId, layoutsByWorktreeId])
+    if (!activeScopeId) return []
+    return layoutsByScopeId[activeScopeId] ?? []
+  }, [activeScopeId, layoutsByScopeId])
 
   useEffect(() => {
     if (layout.length === 0) {
@@ -161,28 +155,28 @@ function MobileTerminalFocus() {
       return
     }
 
-    const worktreeChanged = previousWorktreeIdRef.current !== activeWorktreeId
+    const scopeChanged = previousScopeIdRef.current !== activeScopeId
     const terminalAdded = layout.length > previousLayoutLengthRef.current
     previousLayoutLengthRef.current = layout.length
-    previousWorktreeIdRef.current = activeWorktreeId
+    previousScopeIdRef.current = activeScopeId
 
     setActiveTerminalId((current) => {
-      if (!worktreeChanged && !terminalAdded && current && layout.some((item) => item.i === current)) {
+      if (!scopeChanged && !terminalAdded && current && layout.some((item) => item.i === current)) {
         return current
       }
       return layout[layout.length - 1]?.i ?? null
     })
-  }, [activeWorktreeId, layout])
+  }, [activeScopeId, layout])
 
   const handleNewTerminal = () => {
-    if (activeWorktreeId) {
-      createNewTerminalForWorktree(activeWorktreeId)
+    if (activeScopeId) {
+      void createNewTerminalForScope(activeScopeId)
     }
   }
 
   const handleCloseTerminal = () => {
     if (activeTerminalId) {
-      closeTerminal(activeTerminalId)
+      void closeTerminal(activeTerminalId)
     }
   }
 
@@ -190,12 +184,12 @@ function MobileTerminalFocus() {
     setTerminalActions(null)
   }, [activeTerminalId])
 
-  if (!activeWorktreeId || layout.length === 0 || !activeTerminalId) {
+  if (!activeScopeId || layout.length === 0 || !activeTerminalId) {
     return (
       <div className="flex-1 flex items-center justify-center app-subtle px-6">
         <div className="text-center">
           <p className="text-lg mb-2">No terminal opened</p>
-          <p className="text-sm">Open the projects menu and select a worktree.</p>
+          <p className="text-sm">Open the projects menu or a directory terminal.</p>
         </div>
       </div>
     )

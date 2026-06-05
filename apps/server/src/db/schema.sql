@@ -30,8 +30,11 @@ CREATE TABLE IF NOT EXISTS worktrees (
 
 CREATE TABLE IF NOT EXISTS terminal_sessions (
   id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL,
-  worktree_id TEXT NOT NULL,
+  project_id TEXT,
+  worktree_id TEXT,
+  scope_type TEXT NOT NULL,
+  scope_id TEXT NOT NULL,
+  scope_label TEXT NOT NULL,
   title TEXT NOT NULL,
   shell TEXT NOT NULL,
   cwd TEXT NOT NULL,
@@ -46,12 +49,3 @@ CREATE TABLE IF NOT EXISTS terminal_sessions (
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
   FOREIGN KEY (worktree_id) REFERENCES worktrees(id) ON DELETE CASCADE
 );
-
-CREATE INDEX IF NOT EXISTS idx_worktrees_project_id
-ON worktrees(project_id);
-
-CREATE INDEX IF NOT EXISTS idx_terminal_sessions_worktree_id
-ON terminal_sessions(worktree_id);
-
-CREATE INDEX IF NOT EXISTS idx_terminal_sessions_status
-ON terminal_sessions(status);
