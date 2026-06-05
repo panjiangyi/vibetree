@@ -9,6 +9,8 @@ const EDITABLE_SELECTOR = [
   '.xterm-helper-textarea',
 ].join(',')
 
+const KEYBOARD_OPEN_DELTA_PX = 120
+
 function isEditableElement(element: Element | null): element is HTMLElement {
   return element instanceof HTMLElement && element.matches(EDITABLE_SELECTOR)
 }
@@ -35,13 +37,27 @@ function getActiveTarget(): HTMLElement | null {
   return cursor instanceof HTMLElement ? cursor : activeElement
 }
 
-function syncViewportCssVars() {
+function getViewportMetrics() {
   const viewport = window.visualViewport
   const height = Math.round(viewport?.height ?? window.innerHeight)
-  const top = Math.round(viewport?.offsetTop ?? 0)
+  const offsetTop = Math.round(viewport?.offsetTop ?? 0)
+  const keyboardOpen = window.innerHeight - height > KEYBOARD_OPEN_DELTA_PX
 
-  document.documentElement.style.setProperty('--app-viewport-height', `${height}px`)
-  document.documentElement.style.setProperty('--app-viewport-offset-top', `${top}px`)
+  return {
+    height,
+    offsetTop,
+    keyboardOpen,
+  }
+}
+
+function syncViewportCssVars() {
+  const viewport = getViewportMetrics()
+
+  document.documentElement.style.setProperty('--app-viewport-height', `${viewport.height}px`)
+  document.documentElement.style.setProperty(
+    '--app-viewport-offset-top',
+    viewport.keyboardOpen ? `${viewport.offsetTop}px` : '0px'
+  )
 }
 
 function ensureActiveTargetVisible() {
@@ -49,6 +65,11 @@ function ensureActiveTargetVisible() {
   if (!target) return
 
   const viewport = window.visualViewport
+  const viewportMetrics = getViewportMetrics()
+  if (!viewportMetrics.keyboardOpen) {
+    return
+  }
+
   const scrollTop = window.scrollY
   const viewportTop = scrollTop + (viewport?.offsetTop ?? 0) + 12
   const viewportHeight = viewport?.height ?? window.innerHeight
@@ -100,7 +121,7 @@ export function useMobileViewportGuard() {
   useEffect(() => {
     syncViewportCssVars()
 
-    const handleViewportChange = () => {
+    const handleViewportResize = () => {
       scheduleViewportGuard()
     }
 
@@ -108,18 +129,22 @@ export function useMobileViewportGuard() {
       scheduleViewportGuard()
     }
 
-    window.addEventListener('resize', handleViewportChange)
-    window.addEventListener('orientationchange', handleViewportChange)
-    window.visualViewport?.addEventListener('resize', handleViewportChange)
-    window.visualViewport?.addEventListener('scroll', handleViewportChange)
+    const handleFocusOut = () => {
+      syncViewportCssVars()
+    }
+
+    window.addEventListener('resize', handleViewportResize)
+    window.addEventListener('orientationchange', handleViewportResize)
+    window.visualViewport?.addEventListener('resize', handleViewportResize)
     document.addEventListener('focusin', handleFocusIn)
+    document.addEventListener('focusout', handleFocusOut)
 
     return () => {
-      window.removeEventListener('resize', handleViewportChange)
-      window.removeEventListener('orientationchange', handleViewportChange)
-      window.visualViewport?.removeEventListener('resize', handleViewportChange)
-      window.visualViewport?.removeEventListener('scroll', handleViewportChange)
+      window.removeEventListener('resize', handleViewportResize)
+      window.removeEventListener('orientationchange', handleViewportResize)
+      window.visualViewport?.removeEventListener('resize', handleViewportResize)
       document.removeEventListener('focusin', handleFocusIn)
+      document.removeEventListener('focusout', handleFocusOut)
     }
   }, [])
 }

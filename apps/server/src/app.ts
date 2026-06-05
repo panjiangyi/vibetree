@@ -21,6 +21,7 @@ import { registerFsRoutes } from './routes/fs.routes.js'
 import { registerDebugRoutes } from './routes/debug.routes.js'
 import { registerTerminalWebSocket } from './websocket/terminal.ws.js'
 import { AppError } from './utils/app-error.js'
+import { normalizeAbsoluteRequestUrl } from './utils/request-url.js'
 
 export async function buildApp(config: AppConfig) {
   const app = Fastify({
@@ -68,6 +69,10 @@ export async function buildApp(config: AppConfig) {
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
   await app.register(websocket)
+
+  app.addHook('onRequest', async (request) => {
+    request.raw.url = normalizeAbsoluteRequestUrl(request.raw.url ?? '')
+  })
 
   // Error handler
   app.setErrorHandler((error, request, reply) => {
