@@ -18,7 +18,9 @@ export function RemoveWorktreeDialog() {
     (t) => t.worktreeId === worktree.id && t.status === 'running'
   ).length
 
-  const isDisabled = worktree.isMain || worktree.isDirty || runningCount > 0
+  const mergeCheck = worktree.mergeCheck
+  const isMergeBlocked = !worktree.isMain && mergeCheck?.isMergedToTarget !== true
+  const isDisabled = worktree.isMain || worktree.isDirty || runningCount > 0 || isMergeBlocked
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,7 +47,16 @@ export function RemoveWorktreeDialog() {
     disabledReason = 'Dirty worktree cannot be removed in v1.'
   } else if (runningCount > 0) {
     disabledReason = 'Close running terminals before removing this worktree.'
+  } else if (isMergeBlocked) {
+    disabledReason =
+      mergeCheck?.reason ??
+      `Branch is not merged into ${mergeCheck?.targetRef ?? 'the target branch'}.`
   }
+
+  const removalMessage =
+    mergeCheck?.status === 'rebased'
+      ? `This will remove the worktree. The branch patches are already present in ${mergeCheck.targetRef}.`
+      : 'This will remove the worktree from Git and delete the directory. This action cannot be undone.'
 
   return (
     <div className="app-dialog-overlay">
@@ -72,7 +83,7 @@ export function RemoveWorktreeDialog() {
             </div>
           ) : (
             <p className="text-sm app-muted">
-              This will remove the worktree from Git and delete the directory. This action cannot be undone.
+              {removalMessage}
             </p>
           )}
 

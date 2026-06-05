@@ -19,10 +19,47 @@ export type Worktree = {
   head: string | null
   isMain: boolean
   isDirty: boolean
+  mergeCheck?: MergeCheckResult
   createdByApp: boolean
   createdAt: string
   updatedAt: string
 }
+
+export type MergeCheckStatus =
+  | 'merged'
+  | 'rebased'
+  | 'unmerged'
+  | 'unknown'
+  | 'not_applicable'
+
+export type MergeCheckMethod =
+  | 'ancestor'
+  | 'patch_equivalent'
+  | 'none'
+
+export type MergeCheckResult = {
+  branch: string | null
+  targetRef: string
+  sourceCommit: string | null
+  status: MergeCheckStatus
+  method: MergeCheckMethod
+  isMergedToTarget: boolean
+  reason?: string
+  equivalentCommitCount?: number
+  unmergedCommitCount?: number
+}
+
+export type CheckMergeInput =
+  | {
+      branch: string
+      worktreeId?: never
+      targetRef?: string
+    }
+  | {
+      branch?: never
+      worktreeId: string
+      targetRef?: string
+    }
 
 export type TerminalStatus =
   | 'running'

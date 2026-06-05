@@ -1,6 +1,12 @@
 import path from 'node:path'
 import { nanoid } from 'nanoid'
-import type { Worktree, CreateWorktreeInput, UpdateWorktreeInput } from '@vibetree/shared'
+import type {
+  Worktree,
+  CreateWorktreeInput,
+  UpdateWorktreeInput,
+  CheckMergeInput,
+  MergeCheckResult,
+} from '@vibetree/shared'
 import * as git from '../git/git.service.js'
 import { assertPathInside, normalizePath } from '../security/path-safety.js'
 import {
@@ -10,6 +16,7 @@ import {
   WORKTREE_DIRTY,
   WORKTREE_HAS_RUNNING_TERMINALS,
   CANNOT_REMOVE_MAIN_WORKTREE,
+  WORKTREE_NOT_MERGED,
   BASE_REF_NOT_FOUND,
   BRANCH_EXISTS,
   PROJECT_NOT_FOUND,
@@ -38,6 +45,38 @@ function getWorktreeName(info: { path: string; branch: string | null }, project:
   return 'unknown'
 }
 
+function notApplicableMergeCheck(
+  targetRef: string,
+  branch: string | null,
+  reason: string
+): MergeCheckResult {
+  return {
+    branch,
+    targetRef,
+    sourceCommit: null,
+    status: 'not_applicable',
+    method: 'none',
+    isMergedToTarget: false,
+    reason,
+  }
+}
+
+function unknownMergeCheck(
+  targetRef: string,
+  branch: string | null,
+  reason: string
+): MergeCheckResult {
+  return {
+    branch,
+    targetRef,
+    sourceCommit: null,
+    status: 'unknown',
+    method: 'none',
+    isMergedToTarget: false,
+    reason,
+  }
+}
+
 export type WorktreeService = ReturnType<typeof createWorktreeService>
 
 export function createWorktreeService(
@@ -46,6 +85,56 @@ export function createWorktreeService(
   terminalRepo: TerminalRepo,
   terminalService: TerminalSvc
 ) {
+  async function getWorktreeMergeCheck(
+    project: { repoPath: string; mainBranch: string },
+    worktree: Pick<Worktree, 'branch' | 'isMain'>
+  ): Promise<MergeCheckResult> {
+    if (worktree.isMain) {
+      return notApplicableMergeCheck(
+        project.mainBranch,
+        worktree.branch,
+        'Main worktree is not removable.'
+      )
+    }
+
+    if (!worktree.branch) {
+      return unknownMergeCheck(
+        project.mainBranch,
+        null,
+        'Worktree is detached and has no local branch.'
+      )
+    }
+
+    try {
+      return await git.checkBranchMergedToTarget(
+        project.repoPath,
+        worktree.branch,
+        project.mainBranch
+      )
+    } catch {
+      return unknownMergeCheck(
+        project.mainBranch,
+        worktree.branch,
+        'Could not determine merge status.'
+      )
+    }
+  }
+
+  async function withMergeChecks(
+    projectId: string,
+    worktrees: Worktree[]
+  ): Promise<Worktree[]> {
+    const project = projectRepo.findById(projectId)
+    if (!project) return worktrees
+
+    return Promise.all(
+      worktrees.map(async (worktree) => ({
+        ...worktree,
+        mergeCheck: await getWorktreeMergeCheck(project, worktree),
+      }))
+    )
+  }
+
   return {
     async syncProjectWorktrees(projectId: string): Promise<void> {
       const project = projectRepo.findById(projectId)
@@ -186,6 +275,17 @@ export function createWorktreeService(
         throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
       }
 
+      const mergeCheck = await getWorktreeMergeCheck(project, wt)
+      if (!mergeCheck.isMergedToTarget) {
+        const reason = mergeCheck.reason
+          ? ` ${mergeCheck.reason}`
+          : ''
+        throw new AppError(
+          WORKTREE_NOT_MERGED,
+          `Cannot remove worktree because branch is not merged into ${mergeCheck.targetRef}.${reason}`
+        )
+      }
+
       // Verify path exists in git worktree list
       const gitWorktrees = await git.listWorktrees(project.repoPath)
       const existsInGit = gitWorktrees.some(
@@ -241,8 +341,39 @@ export function createWorktreeService(
       return { ...wt, isDirty, updatedAt: now }
     },
 
-    listWorktrees(projectId: string): Worktree[] {
-      return worktreeRepo.findByProjectId(projectId)
+    async checkProjectMerge(
+      projectId: string,
+      input: CheckMergeInput
+    ): Promise<MergeCheckResult> {
+      const project = projectRepo.findById(projectId)
+      if (!project) {
+        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
+      }
+
+      const targetRef = input.targetRef?.trim() || project.mainBranch
+
+      if (input.worktreeId) {
+        const wt = worktreeRepo.findById(input.worktreeId)
+        if (!wt) {
+          throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
+        }
+        if (wt.projectId !== projectId) {
+          throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found in project')
+        }
+
+        const projectForCheck = { repoPath: project.repoPath, mainBranch: targetRef }
+        return getWorktreeMergeCheck(projectForCheck, wt)
+      }
+
+      if (!input.branch) {
+        throw new AppError('INVALID_MERGE_CHECK_INPUT', 'Branch is required')
+      }
+
+      return git.checkBranchMergedToTarget(project.repoPath, input.branch, targetRef)
+    },
+
+    async listWorktrees(projectId: string): Promise<Worktree[]> {
+      return withMergeChecks(projectId, worktreeRepo.findByProjectId(projectId))
     },
   }
 }

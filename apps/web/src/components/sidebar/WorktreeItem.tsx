@@ -19,6 +19,14 @@ export function WorktreeItem({ worktree, mobile = false, onSelected }: Props) {
   ).length
 
   const displayName = worktree.displayName || worktree.name
+  const mergeStatus = worktree.mergeCheck?.status
+  const mergeLabel = mergeStatus === 'not_applicable' ? null : mergeStatus
+  const mergeClass =
+    mergeStatus === 'merged' || mergeStatus === 'rebased'
+      ? 'app-success'
+      : mergeStatus === 'unmerged'
+        ? 'app-warning'
+        : 'app-subtle'
   const handleOpen = async () => {
     await openTerminalForWorktree(worktree.id)
     onSelected?.()
@@ -50,6 +58,11 @@ export function WorktreeItem({ worktree, mobile = false, onSelected }: Props) {
       <div className="flex items-center gap-1">
         {worktree.isDirty && (
           <span className="text-xs app-warning">dirty</span>
+        )}
+        {!worktree.isMain && mergeLabel && (
+          <span className={`text-xs ${mergeClass}`} title={worktree.mergeCheck?.reason}>
+            {mergeLabel}
+          </span>
         )}
         {runningCount > 0 && (
           <span className="flex items-center gap-0.5 text-xs app-success">

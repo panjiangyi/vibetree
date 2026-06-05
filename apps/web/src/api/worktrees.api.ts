@@ -1,5 +1,11 @@
 import { apiFetch } from './client.js'
-import type { Worktree, CreateWorktreeInput, UpdateWorktreeInput } from '@vibetree/shared'
+import type {
+  Worktree,
+  CreateWorktreeInput,
+  UpdateWorktreeInput,
+  CheckMergeInput,
+  MergeCheckResult,
+} from '@vibetree/shared'
 
 export async function listWorktrees(projectId: string): Promise<Worktree[]> {
   return apiFetch(`/api/projects/${projectId}/worktrees`)
@@ -31,4 +37,14 @@ export async function updateWorktree(
 
 export async function refreshWorktree(worktreeId: string): Promise<Worktree> {
   return apiFetch(`/api/worktrees/${worktreeId}/refresh`, { method: 'POST' })
+}
+
+export async function checkMerge(
+  projectId: string,
+  input: CheckMergeInput
+): Promise<MergeCheckResult> {
+  return apiFetch(`/api/projects/${projectId}/merge-check`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }
