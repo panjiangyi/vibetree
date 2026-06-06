@@ -1,150 +1,84 @@
 import { useEffect } from 'react'
 
-const EDITABLE_SELECTOR = [
-  'input',
-  'textarea',
-  'select',
-  '[contenteditable="true"]',
-  '[contenteditable=""]',
-  '.xterm-helper-textarea',
-].join(',')
-
 const KEYBOARD_OPEN_DELTA_PX = 120
 
-function isEditableElement(element: Element | null): element is HTMLElement {
-  return element instanceof HTMLElement && element.matches(EDITABLE_SELECTOR)
+function isKeyboardOpen(): boolean {
+  const viewport = window.visualViewport
+  if (!viewport) return false
+  return window.innerHeight - Math.round(viewport.height) > KEYBOARD_OPEN_DELTA_PX
 }
 
-function getActiveTarget(): HTMLElement | null {
+/**
+ * After the browser auto-scrolls to show the focused element when the
+ * virtual keyboard opens, check whether the xterm cursor actually ended
+ * up visible. If the browser scrolled too far (cursor above the screen),
+ * nudge the scroll back just enough to reveal it.
+ */
+function ensureCursorVisible() {
+  if (!isKeyboardOpen()) return
+
   const activeElement = document.activeElement
-  if (!isEditableElement(activeElement)) {
-    return null
+  if (
+    !activeElement ||
+    !activeElement.classList.contains('xterm-helper-textarea')
+  ) {
+    return
   }
 
-  if (!activeElement.classList.contains('xterm-helper-textarea')) {
-    return activeElement
-  }
-
+  // Find the xterm cursor/screen element (the visual representation of
+  // the cursor position), not the hidden textarea itself.
   const xtermRoot = activeElement.closest('.xterm')
-  if (!(xtermRoot instanceof HTMLElement)) {
-    return activeElement
-  }
+  if (!(xtermRoot instanceof HTMLElement)) return
 
   const cursor =
     xtermRoot.querySelector('.xterm-cursor-layer .xterm-cursor') ??
     xtermRoot.querySelector('.xterm-screen')
+  if (!(cursor instanceof HTMLElement)) return
 
-  return cursor instanceof HTMLElement ? cursor : activeElement
-}
+  const rect = cursor.getBoundingClientRect()
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight
 
-function getViewportMetrics() {
-  const viewport = window.visualViewport
-  const height = Math.round(viewport?.height ?? window.innerHeight)
-  const offsetTop = Math.round(viewport?.offsetTop ?? 0)
-  const keyboardOpen = window.innerHeight - height > KEYBOARD_OPEN_DELTA_PX
-
-  return {
-    height,
-    offsetTop,
-    keyboardOpen,
-  }
-}
-
-function syncViewportCssVars() {
-  const viewport = getViewportMetrics()
-
-  document.documentElement.style.setProperty('--app-viewport-height', `${viewport.height}px`)
-  document.documentElement.style.setProperty(
-    '--app-viewport-offset-top',
-    viewport.keyboardOpen ? `${viewport.offsetTop}px` : '0px'
-  )
-}
-
-function ensureActiveTargetVisible() {
-  const target = getActiveTarget()
-  if (!target) return
-
-  const viewport = window.visualViewport
-  const viewportMetrics = getViewportMetrics()
-  if (!viewportMetrics.keyboardOpen) {
+  // Cursor is above the visible area — scroll down to reveal it
+  if (rect.top < 8) {
+    window.scrollBy({ top: rect.top - 8, behavior: 'auto' })
     return
   }
 
-  const scrollTop = window.scrollY
-  const viewportTop = scrollTop + (viewport?.offsetTop ?? 0) + 12
-  const viewportHeight = viewport?.height ?? window.innerHeight
-  const viewportBottom = scrollTop + (viewport?.offsetTop ?? 0) + viewportHeight - 20
-  const targetRect = target.getBoundingClientRect()
-  const absoluteTop = targetRect.top + scrollTop
-  const absoluteBottom = targetRect.bottom + scrollTop
-
-  target.scrollIntoView({
-    block: 'nearest',
-    inline: 'nearest',
-  })
-
-  if (absoluteTop < viewportTop) {
-    window.scrollTo({
-      top: Math.max(0, absoluteTop - 20),
-      behavior: 'auto',
-    })
-    return
-  }
-
-  if (absoluteBottom > viewportBottom) {
-    window.scrollTo({
-      top: Math.max(0, scrollTop + (absoluteBottom - viewportBottom) + 20),
-      behavior: 'auto',
-    })
+  // Cursor is below the visible area — scroll up to reveal it
+  if (rect.bottom > viewportHeight - 8) {
+    window.scrollBy({ top: rect.bottom - viewportHeight + 8, behavior: 'auto' })
   }
 }
 
 function scheduleViewportGuard() {
-  syncViewportCssVars()
-
   window.requestAnimationFrame(() => {
-    ensureActiveTargetVisible()
+    ensureCursorVisible()
 
-    window.setTimeout(() => {
-      syncViewportCssVars()
-      ensureActiveTargetVisible()
-    }, 120)
-
-    window.setTimeout(() => {
-      syncViewportCssVars()
-      ensureActiveTargetVisible()
-    }, 320)
+    // Re-check at 120ms and 320ms to catch late layout shifts after
+    // the keyboard animation finishes.
+    window.setTimeout(ensureCursorVisible, 120)
+    window.setTimeout(ensureCursorVisible, 320)
   })
 }
 
 export function useMobileViewportGuard() {
   useEffect(() => {
-    syncViewportCssVars()
-
-    const handleViewportResize = () => {
+    const handleViewportChange = () => {
       scheduleViewportGuard()
     }
 
-    const handleFocusIn = () => {
-      scheduleViewportGuard()
-    }
-
-    const handleFocusOut = () => {
-      syncViewportCssVars()
-    }
-
-    window.addEventListener('resize', handleViewportResize)
-    window.addEventListener('orientationchange', handleViewportResize)
-    window.visualViewport?.addEventListener('resize', handleViewportResize)
-    document.addEventListener('focusin', handleFocusIn)
-    document.addEventListener('focusout', handleFocusOut)
+    window.addEventListener('resize', handleViewportChange)
+    window.addEventListener('orientationchange', handleViewportChange)
+    window.visualViewport?.addEventListener('resize', handleViewportChange)
+    window.visualViewport?.addEventListener('scroll', handleViewportChange)
+    document.addEventListener('focusin', handleViewportChange)
 
     return () => {
-      window.removeEventListener('resize', handleViewportResize)
-      window.removeEventListener('orientationchange', handleViewportResize)
-      window.visualViewport?.removeEventListener('resize', handleViewportResize)
-      document.removeEventListener('focusin', handleFocusIn)
-      document.removeEventListener('focusout', handleFocusOut)
+      window.removeEventListener('resize', handleViewportChange)
+      window.removeEventListener('orientationchange', handleViewportChange)
+      window.visualViewport?.removeEventListener('resize', handleViewportChange)
+      window.visualViewport?.removeEventListener('scroll', handleViewportChange)
+      document.removeEventListener('focusin', handleViewportChange)
     }
   }, [])
 }

@@ -27,7 +27,7 @@ const QUICK_BALL_TOP_INSET = 56
 const QUICK_BALL_BOTTOM_INSET = 20
 const QUICK_BALL_INNER_RADIUS = 88
 const QUICK_BALL_OUTER_RADIUS = 132
-const QUICK_BALL_ANGLES = [-64, -32, 0, 32, 64] as const
+const QUICK_BALL_ANGLES = [-75, -45, -15, 15, 45, 75] as const
 const QUICK_ACTION_ANIMATION_MS = 260
 const QUICK_BALL_MENU_REACH =
   Math.sin((Math.max(...QUICK_BALL_ANGLES.map((angle) => Math.abs(angle))) * Math.PI) / 180) *
@@ -251,6 +251,12 @@ export default function MobileTerminalQuickBall({
         displayLabel: 'Tab',
         icon: <Send className="w-4 h-4" />,
         onClick: () => sendInput('\t'),
+      },
+      {
+        label: 'Shift+Tab',
+        displayLabel: '⇧Tab',
+        icon: <Send className="w-4 h-4 -scale-x-100" />,
+        onClick: () => sendInput('\x1b[Z'),
       },
       {
         label: '上一条',
