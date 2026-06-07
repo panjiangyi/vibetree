@@ -1,6 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 const KEYBOARD_OPEN_DELTA_PX = 120
+const SCROLL_PADDING = 16
+const DEBOUNCE_MS = 150
+
+let isAdjusting = false
+
+function getViewportHeight(): number {
+  return window.visualViewport?.height ?? window.innerHeight
+}
 
 function isKeyboardOpen(): boolean {
   const viewport = window.visualViewport
@@ -8,25 +16,10 @@ function isKeyboardOpen(): boolean {
   return window.innerHeight - Math.round(viewport.height) > KEYBOARD_OPEN_DELTA_PX
 }
 
-/**
- * After the browser auto-scrolls to show the focused element when the
- * virtual keyboard opens, check whether the xterm cursor actually ended
- * up visible. If the browser scrolled too far (cursor above the screen),
- * nudge the scroll back just enough to reveal it.
- */
-function ensureCursorVisible() {
-  if (!isKeyboardOpen()) return
-
+function scrollXtermCursorIntoView(viewportHeight: number) {
   const activeElement = document.activeElement
-  if (
-    !activeElement ||
-    !activeElement.classList.contains('xterm-helper-textarea')
-  ) {
-    return
-  }
+  if (!activeElement?.classList.contains('xterm-helper-textarea')) return
 
-  // Find the xterm cursor/screen element (the visual representation of
-  // the cursor position), not the hidden textarea itself.
   const xtermRoot = activeElement.closest('.xterm')
   if (!(xtermRoot instanceof HTMLElement)) return
 
@@ -36,49 +29,114 @@ function ensureCursorVisible() {
   if (!(cursor instanceof HTMLElement)) return
 
   const rect = cursor.getBoundingClientRect()
-  const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+  const visibleBottom = viewportHeight - SCROLL_PADDING
 
-  // Cursor is above the visible area — scroll down to reveal it
-  if (rect.top < 8) {
-    window.scrollBy({ top: rect.top - 8, behavior: 'auto' })
+  if (rect.top < SCROLL_PADDING) {
+    window.scrollBy({ top: rect.top - SCROLL_PADDING, behavior: 'auto' })
     return
   }
 
-  // Cursor is below the visible area — scroll up to reveal it
-  if (rect.bottom > viewportHeight - 8) {
-    window.scrollBy({ top: rect.bottom - viewportHeight + 8, behavior: 'auto' })
+  if (rect.bottom > visibleBottom) {
+    window.scrollBy({ top: rect.bottom - visibleBottom + SCROLL_PADDING, behavior: 'auto' })
   }
 }
 
-function scheduleViewportGuard() {
-  window.requestAnimationFrame(() => {
-    ensureCursorVisible()
+function scrollFocusedElementIntoView(viewportHeight: number) {
+  const activeElement = document.activeElement
+  if (!activeElement) return
 
-    // Re-check at 120ms and 320ms to catch late layout shifts after
-    // the keyboard animation finishes.
-    window.setTimeout(ensureCursorVisible, 120)
-    window.setTimeout(ensureCursorVisible, 320)
+  if (activeElement.classList.contains('xterm-helper-textarea')) {
+    scrollXtermCursorIntoView(viewportHeight)
+    return
+  }
+
+  const isInputLike =
+    activeElement instanceof HTMLInputElement ||
+    activeElement instanceof HTMLTextAreaElement ||
+    activeElement instanceof HTMLSelectElement ||
+    (activeElement instanceof HTMLElement && activeElement.isContentEditable)
+
+  if (!isInputLike) return
+
+  const rect = activeElement.getBoundingClientRect()
+  const visibleBottom = viewportHeight - SCROLL_PADDING
+
+  if (rect.top < SCROLL_PADDING) {
+    window.scrollBy({ top: rect.top - SCROLL_PADDING, behavior: 'auto' })
+    return
+  }
+
+  if (rect.bottom > visibleBottom) {
+    window.scrollBy({ top: rect.bottom - visibleBottom + SCROLL_PADDING, behavior: 'auto' })
+  }
+}
+
+function adjustForKeyboard() {
+  if (isAdjusting) return
+  isAdjusting = true
+
+  requestAnimationFrame(() => {
+    if (document.body.scrollTop > 0) {
+      document.body.scrollTop = 0
+    }
+    if (document.documentElement.scrollTop > 0) {
+      document.documentElement.scrollTop = 0
+    }
+
+    if (isKeyboardOpen()) {
+      scrollFocusedElementIntoView(getViewportHeight())
+    }
+
+    isAdjusting = false
   })
 }
 
 export function useMobileViewportGuard() {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wasKeyboardOpenRef = useRef(false)
+
   useEffect(() => {
-    const handleViewportChange = () => {
-      scheduleViewportGuard()
+    const debouncedAdjust = () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
+      timerRef.current = setTimeout(adjustForKeyboard, DEBOUNCE_MS)
     }
 
-    window.addEventListener('resize', handleViewportChange)
-    window.addEventListener('orientationchange', handleViewportChange)
-    window.visualViewport?.addEventListener('resize', handleViewportChange)
-    window.visualViewport?.addEventListener('scroll', handleViewportChange)
-    document.addEventListener('focusin', handleViewportChange)
+    const handleViewportResize = () => {
+      const keyboardOpen = isKeyboardOpen()
+
+      if (keyboardOpen !== wasKeyboardOpenRef.current) {
+        wasKeyboardOpenRef.current = keyboardOpen
+        debouncedAdjust()
+      }
+    }
+
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)) return
+
+      const isInputLike =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target.isContentEditable ||
+        target.classList.contains('xterm-helper-textarea')
+
+      if (isInputLike && isKeyboardOpen()) {
+        debouncedAdjust()
+      }
+    }
+
+    window.visualViewport?.addEventListener('resize', handleViewportResize)
+    document.addEventListener('focusin', handleFocusIn)
 
     return () => {
-      window.removeEventListener('resize', handleViewportChange)
-      window.removeEventListener('orientationchange', handleViewportChange)
-      window.visualViewport?.removeEventListener('resize', handleViewportChange)
-      window.visualViewport?.removeEventListener('scroll', handleViewportChange)
-      document.removeEventListener('focusin', handleViewportChange)
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
+      window.visualViewport?.removeEventListener('resize', handleViewportResize)
+      document.removeEventListener('focusin', handleFocusIn)
     }
   }, [])
 }
