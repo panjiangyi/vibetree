@@ -65,33 +65,35 @@ export function WorktreeTabs() {
               >
                 <button
                   onClick={() => setActiveScope(scopeId)}
-                  className="flex items-center gap-2 whitespace-nowrap"
+                  className="flex items-center gap-2"
                 >
-                  <span className="truncate max-w-[clamp(120px,18vw,260px)]">{displayName}</span>
+                  <span className="max-w-[clamp(120px,18vw,260px)]">{displayName}</span>
                   {terminalCount > 0 && (
-                    <span className="text-xs app-success">{terminalCount}</span>
+                    <span className="text-xs app-success shrink-0">{terminalCount}</span>
                   )}
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void createNewTerminalForScope(scopeId)
-                  }}
-                  className="app-icon-button p-1 md:p-0.5"
-                  title="New terminal"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void closeScopeTerminals(scopeId)
-                  }}
-                  className="app-icon-button p-1 md:p-0.5"
-                  title="Close tab"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void createNewTerminalForScope(scopeId)
+                    }}
+                    className="app-icon-button p-1 md:p-0.5"
+                    title="New terminal"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void closeScopeTerminals(scopeId)
+                    }}
+                    className="app-icon-button p-1 md:p-0.5"
+                    title="Close tab"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             )
           })}
@@ -119,34 +121,36 @@ export function WorktreeTabs() {
               >
                 <button
                   onClick={() => setActiveScope(terminal.scopeId)}
-                  className="flex items-center gap-2 whitespace-nowrap"
+                  className="flex items-center gap-2"
                   title={terminal.cwd}
                 >
-                  <span className="truncate max-w-[clamp(120px,18vw,260px)]">{terminal.scopeLabel}</span>
+                  <span className="max-w-[clamp(120px,18vw,260px)]">{terminal.scopeLabel}</span>
                   {terminalCount > 0 && (
-                    <span className="text-xs app-success">{terminalCount}</span>
+                    <span className="text-xs app-success shrink-0">{terminalCount}</span>
                   )}
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void createNewTerminalForScope(terminal.scopeId)
-                  }}
-                  className="app-icon-button p-1 md:p-0.5"
-                  title="New terminal"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void closeScopeTerminals(terminal.scopeId)
-                  }}
-                  className="app-icon-button p-1 md:p-0.5"
-                  title="Close tab"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void createNewTerminalForScope(terminal.scopeId)
+                    }}
+                    className="app-icon-button p-1 md:p-0.5"
+                    title="New terminal"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void closeScopeTerminals(terminal.scopeId)
+                    }}
+                    className="app-icon-button p-1 md:p-0.5"
+                    title="Close tab"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             )}
           )}
