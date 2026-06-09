@@ -1,3 +1,5 @@
+import type { TerminalSession } from './types.js'
+
 export type TerminalClientMessage =
   | {
       type: 'attach'
@@ -41,4 +43,18 @@ export type TerminalServerMessage =
       terminalId?: string
       code?: string
       message: string
+    }
+  | {
+      type: 'terminal-created'
+      terminal: TerminalSession
+    }
+  | {
+      type: 'terminal-deleted'
+      terminalId: string
+      scopeId: string
+      scopeType: string
+    }
+  | {
+      type: 'terminal-updated'
+      terminal: TerminalSession
     }

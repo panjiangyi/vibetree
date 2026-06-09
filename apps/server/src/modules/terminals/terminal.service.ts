@@ -96,6 +96,10 @@ function resolveDirectoryScope(cwd: string): DirectoryScope {
   }
 }
 
+import type { TerminalServerMessage } from '@vibetree/shared'
+
+export type TerminalBroadcastEvent = TerminalServerMessage
+
 export type TerminalService = ReturnType<typeof createTerminalService>
 
 export function createTerminalService(
@@ -108,10 +112,16 @@ export function createTerminalService(
   const attachExitHandler = (session: TerminalSession) => {
     ptyManager.onExit(session.id, (exitCode) => {
       if (session.scopeType === 'directory') {
-        terminalRepo.delete(session.id)
+        const { id, scopeId, scopeType } = session
+        terminalRepo.delete(id)
+        self.onBroadcast?.({ type: 'terminal-deleted', terminalId: id, scopeId, scopeType })
         return
       }
       terminalRepo.markExited(session.id, exitCode)
+      const updated = terminalRepo.findById(session.id)
+      if (updated) {
+        self.onBroadcast?.({ type: 'terminal-updated', terminal: updated })
+      }
     })
   }
 
@@ -133,7 +143,9 @@ export function createTerminalService(
     return terminalRepo.findById(session.id)!
   }
 
-  return {
+  const self = {
+    onBroadcast: null as ((event: TerminalBroadcastEvent) => void) | null,
+
     reconcileTerminalStatuses(): void {
       const terminals = terminalRepo.findAll()
       for (const terminal of terminals) {
@@ -206,6 +218,7 @@ export function createTerminalService(
       if (input.initialCommand) {
         ptyManager.write(created.id, `${input.initialCommand}\n`)
       }
+      self.onBroadcast?.({ type: 'terminal-created', terminal: created })
       return created
     },
 
@@ -274,6 +287,7 @@ export function createTerminalService(
       if (input.initialCommand) {
         ptyManager.write(created.id, `${input.initialCommand}\n`)
       }
+      self.onBroadcast?.({ type: 'terminal-created', terminal: created })
       return created
     },
 
@@ -287,7 +301,9 @@ export function createTerminalService(
         terminalRepo.updateTitle(id, input.title)
       }
 
-      return terminalRepo.findById(id)!
+      const updated = terminalRepo.findById(id)!
+      self.onBroadcast?.({ type: 'terminal-updated', terminal: updated })
+      return updated
     },
 
     deleteTerminal(id: string): void {
@@ -296,11 +312,14 @@ export function createTerminalService(
         throw new AppError(TERMINAL_NOT_FOUND, 'Terminal not found')
       }
 
+      const { scopeId, scopeType } = terminal
+
       if (terminal.status === 'running') {
         ptyManager.kill(id)
       }
 
       terminalRepo.delete(id)
+      self.onBroadcast?.({ type: 'terminal-deleted', terminalId: id, scopeId, scopeType })
     },
 
     restartTerminal(id: string): TerminalSession {
@@ -352,11 +371,15 @@ export function createTerminalService(
       terminalRepo.updatePidAndStatus(id, runtime.pty.pid, 'running')
       attachExitHandler(terminal)
 
-      return terminalRepo.findById(id)!
+      const updated = terminalRepo.findById(id)!
+      self.onBroadcast?.({ type: 'terminal-updated', terminal: updated })
+      return updated
     },
 
     writeToTerminal(id: string, data: string): void {
       ptyManager.write(id, data)
     },
   }
+
+  return self
 }

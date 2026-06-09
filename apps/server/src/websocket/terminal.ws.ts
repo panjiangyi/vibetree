@@ -11,6 +11,12 @@ export function registerTerminalWebSocket(
   ptyManager: PtyManager,
   authService: AuthService
 ) {
+  terminalService.onBroadcast = (event) => {
+    const sockets = authService.getAllSockets()
+    for (const socket of sockets) {
+      sendWs(socket, event)
+    }
+  }
   app.get('/ws/terminal', { websocket: true }, (ws: WebSocket, request) => {
     const session = authService.requireSession(request)
     authService.attachSocket(session.sessionId, ws)

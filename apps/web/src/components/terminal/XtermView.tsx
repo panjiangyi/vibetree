@@ -712,6 +712,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
 
     // Handle messages
     const unsubscribe = terminalSocket.onMessage((message) => {
+      if (message.type !== 'output' && message.type !== 'exit') return
       if (message.terminalId !== terminalId) return
 
       if (message.type === 'output') {

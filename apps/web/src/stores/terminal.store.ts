@@ -106,7 +106,9 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     if (existing.scopeType === 'directory') {
       terminal = await terminalsApi.createDirectoryTerminal({ scopeId })
       set((state) => ({
-        terminals: [...state.terminals, terminal],
+        terminals: state.terminals.some(t => t.id === terminal.id)
+          ? state.terminals.map(t => t.id === terminal.id ? terminal : t)
+          : [...state.terminals, terminal],
       }))
     } else {
       if (!existing.worktreeId) {
@@ -123,7 +125,9 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     try {
       const terminal = await terminalsApi.createTerminal(worktreeId, input)
       set((state) => ({
-        terminals: [...state.terminals, terminal],
+        terminals: state.terminals.some(t => t.id === terminal.id)
+          ? state.terminals.map(t => t.id === terminal.id ? terminal : t)
+          : [...state.terminals, terminal],
         loading: false,
       }))
       return terminal
@@ -233,7 +237,58 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
 }))
 
 terminalSocket.onMessage((message) => {
-  if (message.type === 'exit') {
-    useTerminalStore.getState().handleTerminalExit(message.terminalId, message.exitCode)
+  switch (message.type) {
+    case 'exit':
+      useTerminalStore.getState().handleTerminalExit(message.terminalId, message.exitCode)
+      break
+
+    case 'terminal-created': {
+      const { terminal } = message
+      const store = useTerminalStore.getState()
+      if (store.terminals.some(t => t.id === terminal.id)) break
+
+      useTerminalStore.setState(state => ({
+        terminals: [...state.terminals, terminal],
+      }))
+
+      const layoutStore = useLayoutStore.getState()
+      if (layoutStore.activeScopeId === terminal.scopeId) {
+        layoutStore.addPaneForTerminal(terminal.scopeId, terminal.id, terminal.title)
+      }
+      break
+    }
+
+    case 'terminal-deleted': {
+      const { terminalId, scopeId } = message
+      const store = useTerminalStore.getState()
+      if (!store.terminals.some(t => t.id === terminalId)) break
+
+      useTerminalStore.setState(state => ({
+        terminals: state.terminals.filter(t => t.id !== terminalId),
+      }))
+
+      useLayoutStore.getState().removePane(scopeId, terminalId)
+
+      const remaining = useTerminalStore.getState().terminals.filter(t => t.scopeId === scopeId)
+      if (remaining.length === 0 && useTerminalStore.getState().activeScopeId === scopeId) {
+        useTerminalStore.getState().setActiveScope(
+          pickFallbackScopeId(useTerminalStore.getState().terminals, scopeId)
+        )
+      }
+      break
+    }
+
+    case 'terminal-updated': {
+      const { terminal } = message
+      useTerminalStore.setState(state => ({
+        terminals: state.terminals.map(t => t.id === terminal.id ? terminal : t),
+      }))
+      useLayoutStore.getState().setTerminalTitle(terminal.id, terminal.title)
+      break
+    }
   }
+})
+
+terminalSocket.onReconnect(() => {
+  useTerminalStore.getState().loadTerminals()
 })

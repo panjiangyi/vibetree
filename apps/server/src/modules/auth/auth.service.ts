@@ -238,5 +238,15 @@ export function createAuthService(config: AppConfig) {
         session.sockets.delete(socket)
       }
     },
+
+    getAllSockets(): WebSocket[] {
+      const result: WebSocket[] = []
+      for (const session of sessions.values()) {
+        for (const socket of session.sockets) {
+          result.push(socket)
+        }
+      }
+      return result
+    },
   }
 }
