@@ -49,12 +49,12 @@ export function registerTerminalWebSocket(
               terminalId: message.terminalId,
             })
 
-            // Replay buffer
-            for (const chunk of runtime.outputBuffer.toArray()) {
+            const replayOutput = runtime.outputBuffer.toString()
+            if (replayOutput) {
               sendWs(ws, {
                 type: 'output',
                 terminalId: message.terminalId,
-                data: chunk,
+                data: replayOutput,
               })
             }
             break

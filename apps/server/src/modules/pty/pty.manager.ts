@@ -2,8 +2,10 @@ import pty from 'node-pty'
 import type { IPty } from 'node-pty'
 import type WebSocket from 'ws'
 import { buildShellLaunchConfig } from './compact-prompt.js'
-import { RingBuffer } from './ring-buffer.js'
+import { OutputReplayBuffer } from './output-replay-buffer.js'
 import type { PtyRuntimeSession, CreatePtyInput } from './pty.types.js'
+
+const OUTPUT_REPLAY_BUFFER_BYTES = 1024 * 1024
 
 function sendWs(ws: WebSocket, data: unknown): void {
   if (ws.readyState === ws.OPEN) {
@@ -43,7 +45,7 @@ export function createPtyManager() {
         },
       })
 
-      const outputBuffer = new RingBuffer<string>(5000)
+      const outputBuffer = new OutputReplayBuffer(OUTPUT_REPLAY_BUFFER_BYTES)
 
       const runtime: PtyRuntimeSession = {
         terminalId: input.terminalId,

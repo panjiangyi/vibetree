@@ -1,11 +1,11 @@
 import type { IPty } from 'node-pty'
 import type WebSocket from 'ws'
-import type { RingBuffer } from './ring-buffer.js'
+import type { OutputReplayBuffer } from './output-replay-buffer.js'
 
 export type PtyRuntimeSession = {
   terminalId: string
   pty: IPty
-  outputBuffer: RingBuffer<string>
+  outputBuffer: OutputReplayBuffer
   clients: Set<WebSocket>
   createdAt: string
 }

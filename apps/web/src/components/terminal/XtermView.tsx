@@ -3,7 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
-import { logInputEvent } from '../../debug/input-event-logger.js'
+import { isInputEventLoggingEnabled, logInputEvent } from '../../debug/input-event-logger.js'
 import { terminalSocket } from '../../ws/terminal-socket.js'
 import { useThemeStore } from '../../stores/theme.store.js'
 
@@ -27,6 +27,7 @@ const IME_ECHO_SUPPRESSION_MS = 500
 const RECENT_XTERM_DATA_WINDOW_MS = 120
 const RECENT_INPUT_TEXT_WINDOW_MS = 3000
 const MAX_RECENT_INPUT_TEXT_LENGTH = 300
+const MAX_OUTPUT_CHARS_PER_FRAME = 64 * 1024
 
 function copyText(text: string): boolean {
   if (!text) return false
@@ -186,9 +187,18 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       atBottomRef.current = true
     }
 
+    let resizeFrameId: number | null = null
+    let scrollAfterResize = false
+
     const fitResizeAndMaybeScroll = (forceScroll = false) => {
-      const shouldScroll = forceScroll || atBottomRef.current
-      requestAnimationFrame(() => {
+      scrollAfterResize = scrollAfterResize || forceScroll || atBottomRef.current
+      if (resizeFrameId != null) return
+
+      resizeFrameId = requestAnimationFrame(() => {
+        resizeFrameId = null
+        const shouldScroll = scrollAfterResize
+        scrollAfterResize = false
+
         fitAddon.fit()
         terminalSocket.resize({
           terminalId,
@@ -220,7 +230,8 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       return false
     })
 
-    requestAnimationFrame(() => {
+    let initialAttachFrameId: number | null = requestAnimationFrame(() => {
+      initialAttachFrameId = null
       fitAddon.fit()
       terminalSocket.attach({
         terminalId,
@@ -234,6 +245,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     if (!textarea) {
       return
     }
+    const debugInputEventsEnabled = isInputEventLoggingEnabled()
 
     const clearImeEchoData = () => {
       imeEchoDataRef.current = ''
@@ -356,6 +368,8 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     })
 
     const logEvent = (source: string, event: Event) => {
+      if (!debugInputEventsEnabled) return
+
       const inputEvent = event instanceof InputEvent ? event : null
       const keyboardEvent = event instanceof KeyboardEvent ? event : null
       const compositionEvent = event instanceof CompositionEvent ? event : null
@@ -397,6 +411,8 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     }
 
     const logAppData = (source: string, data: string) => {
+      if (!debugInputEventsEnabled) return
+
       logInputEvent({
         terminalId,
         source,
@@ -651,14 +667,16 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     textarea.addEventListener('compositionupdate', handleCompositionUpdate)
     textarea.addEventListener('compositionend', handleCompositionEnd)
     textarea.addEventListener('input', handleTextInput)
-    addPassiveLogger(textarea, 'textarea.capture', inputEventNames, { capture: true })
-    addPassiveLogger(textarea, 'textarea.bubble', inputEventNames)
-    if (term.element) {
-      addPassiveLogger(term.element, 'xterm.element.capture', inputEventNames, { capture: true })
-      addPassiveLogger(term.element, 'xterm.element.bubble', inputEventNames)
+    if (debugInputEventsEnabled) {
+      addPassiveLogger(textarea, 'textarea.capture', inputEventNames, { capture: true })
+      addPassiveLogger(textarea, 'textarea.bubble', inputEventNames)
+      if (term.element) {
+        addPassiveLogger(term.element, 'xterm.element.capture', inputEventNames, { capture: true })
+        addPassiveLogger(term.element, 'xterm.element.bubble', inputEventNames)
+      }
+      addPassiveLogger(containerRef.current, 'container.capture', inputEventNames, { capture: true })
+      addPassiveLogger(document, 'document.capture', [...inputEventNames, 'selectionchange'], { capture: true })
     }
-    addPassiveLogger(containerRef.current, 'container.capture', inputEventNames, { capture: true })
-    addPassiveLogger(document, 'document.capture', [...inputEventNames, 'selectionchange'], { capture: true })
 
     // Handle input
     const disposable = term.onData((data) => {
@@ -710,18 +728,47 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
+    let pendingOutput = ''
+    let outputWriteFrameId: number | null = null
+    let outputWriteInProgress = false
+
+    const scheduleOutputWrite = () => {
+      if (outputWriteFrameId != null || outputWriteInProgress) return
+      outputWriteFrameId = requestAnimationFrame(writePendingOutput)
+    }
+
+    function writePendingOutput() {
+      outputWriteFrameId = null
+      if (outputWriteInProgress || !pendingOutput) return
+
+      const data = pendingOutput.slice(0, MAX_OUTPUT_CHARS_PER_FRAME)
+      pendingOutput = pendingOutput.slice(data.length)
+      outputWriteInProgress = true
+
+      term.write(data, () => {
+        outputWriteInProgress = false
+        if (pendingOutput) {
+          scheduleOutputWrite()
+        }
+      })
+    }
+
+    const enqueueOutput = (data: string) => {
+      pendingOutput += data
+      scheduleOutputWrite()
+    }
+
     // Handle messages
     const unsubscribe = terminalSocket.onMessage((message) => {
       if (message.type !== 'output' && message.type !== 'exit') return
       if (message.terminalId !== terminalId) return
 
       if (message.type === 'output') {
-        term.write(message.data)
+        enqueueOutput(message.data)
       }
 
       if (message.type === 'exit') {
-        term.writeln('')
-        term.writeln(`\x1b[33mTerminal exited with code ${message.exitCode ?? ''}\x1b[0m`)
+        enqueueOutput(`\r\n\x1b[33mTerminal exited with code ${message.exitCode ?? ''}\x1b[0m\r\n`)
       }
     })
 
@@ -745,6 +792,16 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       clearImeEchoData()
       clearRecentXtermData()
       clearRecentInputText()
+      if (initialAttachFrameId != null) {
+        cancelAnimationFrame(initialAttachFrameId)
+      }
+      if (resizeFrameId != null) {
+        cancelAnimationFrame(resizeFrameId)
+      }
+      if (outputWriteFrameId != null) {
+        cancelAnimationFrame(outputWriteFrameId)
+      }
+      pendingOutput = ''
       resizeObserver.disconnect()
       scrollDisposable.dispose()
       writeParsedDisposable.dispose()
