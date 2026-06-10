@@ -52,6 +52,25 @@ function orderedIds(layout: LayoutItem[]): string[] {
     .map((item) => item.i)
 }
 
+function runningTerminals(terminals: TerminalSession[]): TerminalSession[] {
+  return terminals.filter((terminal) => terminal.status === 'running')
+}
+
+function newestTerminalFirst(a: TerminalSession, b: TerminalSession): number {
+  return (b.lastActiveAt ?? b.updatedAt).localeCompare(a.lastActiveAt ?? a.updatedAt)
+}
+
+function groupRunningTerminalIdsByScope(terminals: TerminalSession[]): Record<string, string[]> {
+  const grouped: Record<string, string[]> = {}
+
+  for (const terminal of runningTerminals(terminals).sort(newestTerminalFirst)) {
+    grouped[terminal.scopeId] ??= []
+    grouped[terminal.scopeId].push(terminal.id)
+  }
+
+  return grouped
+}
+
 function layoutsEqual(a: readonly LayoutItem[], b: readonly LayoutItem[]): boolean {
   if (a.length !== b.length) return false
 
@@ -136,7 +155,7 @@ type LayoutStore = {
   addPaneForTerminal: (scopeId: string, terminalId: string, title: string) => void
   removePane: (scopeId: string, terminalId: string) => void
   setTerminalTitle: (terminalId: string, title: string) => void
-  reconcileWithTerminals: (terminals: TerminalSession[]) => void
+  reconcileWithTerminals: (terminals: TerminalSession[]) => string | null
 }
 
 export const useLayoutStore = create<LayoutStore>((set, get) => ({
@@ -212,40 +231,60 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   },
 
   reconcileWithTerminals: (terminals) => {
-    const terminalIds = new Set(terminals.map((terminal) => terminal.id))
+    const visibleTerminals = runningTerminals(terminals).sort(newestTerminalFirst)
+    const visibleTerminalIds = new Set(visibleTerminals.map((terminal) => terminal.id))
+    const visibleIdsByScope = groupRunningTerminalIdsByScope(terminals)
     const titleMap = Object.fromEntries(
       terminals.map((terminal) => [terminal.id, terminal.title])
     )
+    let resolvedActiveScopeId: string | null = null
 
     set((state) => {
       let changed = false
       const nextLayouts: Record<string, LayoutItem[]> = {}
+      const scopeIds = new Set([
+        ...Object.keys(state.layoutsByScopeId),
+        ...Object.keys(visibleIdsByScope),
+      ])
 
-      for (const [scopeId, layout] of Object.entries(state.layoutsByScopeId)) {
-        const filtered = layout.filter((item) => terminalIds.has(item.i))
+      for (const scopeId of scopeIds) {
+        const layout = state.layoutsByScopeId[scopeId] ?? []
+        const visibleIds = visibleIdsByScope[scopeId] ?? []
+        const filtered = layout.filter((item) => visibleTerminalIds.has(item.i))
+        const existingIds = orderedIds(filtered)
+        const missingIds = visibleIds.filter((id) => !existingIds.includes(id))
         if (filtered.length !== layout.length) {
           changed = true
         }
 
-        if (filtered.length === 0) {
+        if (missingIds.length > 0) {
+          changed = true
+        }
+
+        const mergedIds = [...existingIds, ...missingIds]
+        if (mergedIds.length === 0) {
           continue
         }
 
-        const normalized = normalizeLayout(filtered)
-        if (!layoutsEqual(filtered, normalized)) {
+        const nextLayout =
+          missingIds.length > 0 || filtered.length !== layout.length
+            ? tileLayout(mergedIds)
+            : normalizeLayout(filtered)
+
+        if (!layoutsEqual(layout, nextLayout)) {
           changed = true
         }
-        nextLayouts[scopeId] = normalized
+        nextLayouts[scopeId] = nextLayout
       }
 
-      const activeScopeId =
+      resolvedActiveScopeId =
         state.activeScopeId && nextLayouts[state.activeScopeId]
           ? state.activeScopeId
-          : Object.keys(nextLayouts)[0] ?? null
+          : visibleTerminals[0]?.scopeId ?? Object.keys(nextLayouts)[0] ?? null
 
       if (
         !changed &&
-        activeScopeId === state.activeScopeId &&
+        resolvedActiveScopeId === state.activeScopeId &&
         Object.keys(titleMap).length === Object.keys(state.terminalIdToTitle).length &&
         Object.entries(titleMap).every(([id, title]) => state.terminalIdToTitle[id] === title)
       ) {
@@ -253,17 +292,19 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       }
 
       saveLayouts(nextLayouts)
-      if (activeScopeId) {
-        localStorage.setItem(ACTIVE_SCOPE_KEY, activeScopeId)
+      if (resolvedActiveScopeId) {
+        localStorage.setItem(ACTIVE_SCOPE_KEY, resolvedActiveScopeId)
       } else {
         localStorage.removeItem(ACTIVE_SCOPE_KEY)
       }
 
       return {
-        activeScopeId,
+        activeScopeId: resolvedActiveScopeId,
         layoutsByScopeId: nextLayouts,
         terminalIdToTitle: titleMap,
       }
     })
+
+    return resolvedActiveScopeId
   },
 }))

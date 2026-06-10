@@ -12,10 +12,11 @@ export function WorktreeTabs() {
   const projects = useProjectStore((s) => s.projects)
   const worktreesByProjectId = useProjectStore((s) => s.worktreesByProjectId)
 
-  const activeScopeIds = new Set(terminals.map((t) => t.scopeId))
+  const runningTerminals = terminals.filter((terminal) => terminal.status === 'running')
+  const activeScopeIds = new Set(runningTerminals.map((t) => t.scopeId))
   const directoryScopes = Array.from(
     new Map(
-      terminals
+      runningTerminals
         .filter((terminal) => terminal.scopeType === 'directory')
         .map((terminal) => [terminal.scopeId, terminal])
     ).values()
