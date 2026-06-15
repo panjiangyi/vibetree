@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { ReactGridLayout } from 'react-grid-layout/legacy'
 import type { LayoutItem } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
-import { Plus, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { GRID_COLS, GRID_ROWS, useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
@@ -135,9 +135,6 @@ function DesktopTerminalGrid() {
 function MobileTerminalFocus() {
   const activeScopeId = useLayoutStore((s) => s.activeScopeId)
   const layoutsByScopeId = useLayoutStore((s) => s.layoutsByScopeId)
-  const terminalIdToTitle = useLayoutStore((s) => s.terminalIdToTitle)
-  const closeTerminal = useTerminalStore((s) => s.closeTerminal)
-  const createNewTerminalForScope = useTerminalStore((s) => s.createNewTerminalForScope)
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
   const [terminalActions, setTerminalActions] = useState<TerminalViewActions | null>(null)
   const previousLayoutLengthRef = useRef(0)
@@ -168,18 +165,6 @@ function MobileTerminalFocus() {
     })
   }, [activeScopeId, layout])
 
-  const handleNewTerminal = () => {
-    if (activeScopeId) {
-      void createNewTerminalForScope(activeScopeId)
-    }
-  }
-
-  const handleCloseTerminal = () => {
-    if (activeTerminalId) {
-      void closeTerminal(activeTerminalId)
-    }
-  }
-
   useEffect(() => {
     setTerminalActions(null)
   }, [activeTerminalId])
@@ -197,40 +182,7 @@ function MobileTerminalFocus() {
 
   return (
     <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden">
-      <div className="app-panel-strong border-b flex shrink-0 items-center gap-2 overflow-x-auto px-2 py-2">
-        {layout.map((item, index) => {
-          const isActive = item.i === activeTerminalId
-          return (
-            <button
-              key={item.i}
-              onClick={() => setActiveTerminalId(item.i)}
-              className={`min-w-0 shrink-0 rounded-md border px-3 py-2 text-xs ${
-                isActive ? 'app-panel' : 'app-hover app-muted'
-              }`}
-            >
-              <span className="block max-w-[8rem] truncate">
-                {terminalIdToTitle[item.i] || `Terminal ${index + 1}`}
-              </span>
-            </button>
-          )
-        })}
-        <button
-          onClick={handleNewTerminal}
-          className="app-button-secondary shrink-0 px-3 py-2"
-          title="New terminal"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-        <button
-          onClick={handleCloseTerminal}
-          className="app-button-secondary shrink-0 px-3 py-2"
-          title="Close terminal"
-        >
-          <X className="w-4 h-4 app-danger" />
-        </button>
-      </div>
-
-      <div className="flex-1 min-h-0 app-panel border-t flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 app-panel flex flex-col overflow-hidden">
         <TerminalPane
           terminalId={activeTerminalId}
           fontSize={12}

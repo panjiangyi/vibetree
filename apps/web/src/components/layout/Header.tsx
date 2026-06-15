@@ -4,8 +4,29 @@ import { useLayoutStore } from '../../stores/layout.store.js'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
-import { projectColorForIndex } from '../../utils/projectColor.js'
 import { terminalSocket } from '../../ws/terminal-socket.js'
+
+function getMobileTitle(params: {
+  activeTerminal: ReturnType<typeof useTerminalStore.getState>['terminals'][number] | null
+  activeProject: ReturnType<typeof useProjectStore.getState>['projects'][number] | null
+  activeWorktree: ReturnType<typeof useProjectStore.getState>['worktreesByProjectId'][string][number] | null
+}) {
+  const { activeTerminal, activeProject, activeWorktree } = params
+
+  if (!activeTerminal) return 'VibeTree'
+
+  if (activeTerminal.scopeType === 'directory') {
+    return activeTerminal.scopeLabel || 'Directory Terminal'
+  }
+
+  if (!activeProject) return 'VibeTree'
+
+  const alias = activeWorktree?.displayName || activeWorktree?.name
+  const fallback = activeWorktree?.branch || null
+  const worktreeLabel = alias || fallback
+
+  return worktreeLabel ? `${activeProject.name} / ${worktreeLabel}` : activeProject.name
+}
 
 export function Header() {
   const logout = useAuthStore((s) => s.logout)
@@ -21,20 +42,18 @@ export function Header() {
 
   const runningCount = terminals.filter((t) => t.status === 'running').length
   const activeTerminal = activeScopeId
-    ? terminals.find((terminal) => terminal.scopeId === activeScopeId)
+    ? terminals.find((terminal) => terminal.scopeId === activeScopeId) ?? null
     : null
 
-  const activeProjectIndex = activeTerminal?.scopeType === 'worktree'
-    ? projects.findIndex((p) =>
+  const activeProject = activeTerminal?.scopeType === 'worktree'
+    ? projects.find((p) =>
         (worktreesByProjectId[p.id] ?? []).some((wt) => wt.id === activeTerminal.worktreeId)
-      )
-    : -1
-  const activeProject = activeProjectIndex >= 0 ? projects[activeProjectIndex] : null
-  const activeWorktree = activeProject && activeTerminal?.worktreeId
-    ? (worktreesByProjectId[activeProject.id] ?? []).find((wt) => wt.id === activeTerminal.worktreeId)
+      ) ?? null
     : null
-  const activeWorktreeLabel =
-    activeWorktree?.displayName || activeWorktree?.branch || activeWorktree?.name || null
+  const activeWorktree = activeProject && activeTerminal?.worktreeId
+    ? (worktreesByProjectId[activeProject.id] ?? []).find((wt) => wt.id === activeTerminal.worktreeId) ?? null
+    : null
+  const mobileTitle = getMobileTitle({ activeTerminal, activeProject, activeWorktree })
 
   const handleRefreshAll = async () => {
     for (const project of projects) {
@@ -81,9 +100,9 @@ export function Header() {
         <Menu className="w-5 h-5" />
       </button>
 
-      <div className="flex items-center gap-2 font-semibold">
+      <div className="hidden md:flex items-center gap-2 font-semibold">
         <Terminal className="w-5 h-5 app-success" />
-        <span className="hidden md:inline">VibeTree</span>
+        <span>VibeTree</span>
       </div>
 
       <button
@@ -95,31 +114,12 @@ export function Header() {
         {isDesktopSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
       </button>
 
-      {activeTerminal?.scopeType === 'worktree' && activeProject && (
-        <div
-          className="md:hidden flex items-center gap-1.5 min-w-0 text-sm"
-          title={activeWorktreeLabel ? `${activeProject.name} / ${activeWorktreeLabel}` : activeProject.name}
-        >
-          <span
-            className="w-2 h-2 rounded-full shrink-0"
-            style={{ backgroundColor: projectColorForIndex(activeProjectIndex) }}
-          />
-          <span className="font-medium truncate shrink-0 max-w-[40vw]">{activeProject.name}</span>
-          {activeWorktreeLabel && (
-            <>
-              <span className="app-subtle shrink-0">/</span>
-              <span className="app-muted truncate">{activeWorktreeLabel}</span>
-            </>
-          )}
-        </div>
-      )}
-
-      {activeTerminal?.scopeType === 'directory' && (
-        <div className="md:hidden flex items-center gap-1.5 min-w-0 text-sm" title={activeTerminal.cwd}>
-          <FolderOpen className="w-4 h-4 app-warning shrink-0" />
-          <span className="app-muted truncate">{activeTerminal.scopeLabel}</span>
-        </div>
-      )}
+      <div
+        className="md:hidden min-w-0 flex-1 text-sm font-medium truncate"
+        title={mobileTitle}
+      >
+        {mobileTitle}
+      </div>
 
       <button
         onClick={() => openDialog('addProject')}
@@ -145,9 +145,9 @@ export function Header() {
         Refresh
       </button>
 
-      <div className="flex-1" />
+      <div className="hidden md:block flex-1" />
 
-      <div className="flex items-center gap-1.5 text-xs md:text-sm app-muted">
+      <div className="hidden md:flex items-center gap-1.5 text-xs md:text-sm app-muted">
         <Terminal className="w-4 h-4" />
         <span className="hidden sm:inline">Running: </span>
         <span>{runningCount}</span>

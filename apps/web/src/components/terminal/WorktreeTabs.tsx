@@ -33,7 +33,7 @@ export function WorktreeTabs() {
   if (groups.length === 0 && directoryScopes.length === 0) return null
 
   return (
-    <div className="flex border-b app-panel overflow-x-auto">
+    <div className="hidden md:flex border-b app-panel overflow-x-auto">
       {groups.map(({ project, color, worktrees }) => (
         <div key={project.id} className="flex items-stretch border-r">
           <div
