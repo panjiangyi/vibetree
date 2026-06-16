@@ -118,6 +118,11 @@ export function createTmuxManager() {
 
     const sessionName = sessionNameForTerminal(input.terminalId)
     const launchConfig = buildShellLaunchConfig(input.shell)
+    // `env` execs the target via execvp, so it must come immediately before the
+    // shell binary. Writing `env VAR=v exec bash` is invalid — `env` would try
+    // to run a program named `exec` (a shell builtin), fail, and the session's
+    // window would exit instantly, killing the tmux server and making the
+    // terminal impossible to attach.
     const command =
       `${buildEnvPrefix({
         ...input.env,
@@ -127,7 +132,7 @@ export function createTmuxManager() {
         VIBETREE: '1',
         VIBETREE_TERMINAL_ID: input.terminalId,
       })}` +
-      `exec ${shellEscape(launchConfig.shell)} ${launchConfig.args.map(shellEscape).join(' ')}`
+      `${shellEscape(launchConfig.shell)} ${launchConfig.args.map(shellEscape).join(' ')}`
 
     try {
       execTmux(['new-session', '-d', '-s', sessionName, '-c', input.cwd, command])
