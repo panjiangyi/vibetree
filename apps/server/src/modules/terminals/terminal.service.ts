@@ -24,6 +24,7 @@ import type { createWorktreeRepository } from '../../db/repositories/worktree.re
 import type { createTerminalRepository } from '../../db/repositories/terminal.repository.js'
 import type { AppConfig } from '../../config.js'
 import type { PtyManager } from '../pty/pty.manager.js'
+import type { TmuxManager } from '../tmux/tmux.manager.js'
 import { normalizePath } from '../security/path-safety.js'
 
 type ProjectRepo = ReturnType<typeof createProjectRepository>
@@ -107,10 +108,30 @@ export function createTerminalService(
   worktreeRepo: WorktreeRepo,
   terminalRepo: TerminalRepo,
   ptyManager: PtyManager,
+  tmuxManager: TmuxManager,
   config: AppConfig
 ) {
+  const terminalIdsBeingDeleted = new Set<string>()
+
+  const isPersistentWorktreeTerminal = (session: TerminalSession): boolean => {
+    return session.scopeType === 'worktree' && tmuxManager.isAvailable()
+  }
+
   const attachExitHandler = (session: TerminalSession) => {
     ptyManager.onExit(session.id, (exitCode) => {
+      if (terminalIdsBeingDeleted.has(session.id)) {
+        return
+      }
+
+      if (isPersistentWorktreeTerminal(session) && tmuxManager.hasSession(session.id)) {
+        terminalRepo.updatePid(session.id, null)
+        const updated = terminalRepo.findById(session.id)
+        if (updated) {
+          self.onBroadcast?.({ type: 'terminal-updated', terminal: updated })
+        }
+        return
+      }
+
       if (session.scopeType === 'directory') {
         const { id, scopeId, scopeType } = session
         terminalRepo.delete(id)
@@ -125,22 +146,92 @@ export function createTerminalService(
     })
   }
 
-  const createStoredSession = (session: TerminalSession, env: Record<string, string>) => {
-    terminalRepo.insert(session)
+  const loadWorktreeContext = (session: TerminalSession) => {
+    if (!session.worktreeId) {
+      throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
+    }
+    if (!session.projectId) {
+      throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
+    }
 
-    const runtime = ptyManager.create({
-      terminalId: session.id,
-      shell: session.shell,
-      cwd: session.cwd,
-      cols: session.cols,
-      rows: session.rows,
-      env,
-    })
+    const worktree = worktreeRepo.findById(session.worktreeId)
+    if (!worktree) {
+      throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
+    }
+    const project = projectRepo.findById(session.projectId)
+    if (!project) {
+      throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
+    }
+    if (!fs.existsSync(worktree.path)) {
+      throw new AppError(WORKTREE_PATH_NOT_FOUND, 'Worktree path not found')
+    }
+
+    return { project, worktree }
+  }
+
+  const createRuntime = (session: TerminalSession): TerminalSession => {
+    let runtime
+
+    if (isPersistentWorktreeTerminal(session)) {
+      const attachSpec = tmuxManager.getAttachSpawnSpec(session.id)
+      runtime = ptyManager.create({
+        terminalId: session.id,
+        launch: 'command',
+        ...attachSpec,
+        cwd: session.cwd,
+        cols: session.cols,
+        rows: session.rows,
+        env: attachSpec.env ?? {},
+      })
+    } else {
+      let env: Record<string, string>
+      if (session.scopeType === 'directory') {
+        env = buildDirectoryEnv({
+          cwd: session.cwd,
+          scopeId: session.scopeId,
+          scopeLabel: session.scopeLabel,
+        })
+      } else {
+        const { project, worktree } = loadWorktreeContext(session)
+        env = buildWorktreeEnv(project, worktree)
+      }
+
+      runtime = ptyManager.create({
+        terminalId: session.id,
+        launch: 'shell',
+        shell: session.shell,
+        cwd: session.cwd,
+        cols: session.cols,
+        rows: session.rows,
+        env,
+      })
+    }
 
     terminalRepo.updatePidAndStatus(session.id, runtime.pty.pid, 'running')
     attachExitHandler(session)
-
     return terminalRepo.findById(session.id)!
+  }
+
+  const createStoredSession = (session: TerminalSession, options?: { initialCommand?: string }) => {
+    terminalRepo.insert(session)
+
+    if (isPersistentWorktreeTerminal(session)) {
+      const { project, worktree } = loadWorktreeContext(session)
+      tmuxManager.createSession({
+        terminalId: session.id,
+        cwd: worktree.path,
+        shell: session.shell,
+        env: buildWorktreeEnv(project, worktree),
+        initialCommand: options?.initialCommand,
+      })
+      return createRuntime(session)
+    }
+
+    const created = createRuntime(session)
+    if (options?.initialCommand) {
+      ptyManager.write(created.id, `${options.initialCommand}\n`)
+    }
+    return created
   }
 
   const self = {
@@ -153,9 +244,17 @@ export function createTerminalService(
           continue
         }
 
+        if (isPersistentWorktreeTerminal(terminal) && tmuxManager.hasSession(terminal.id)) {
+          if (terminal.pid !== null) {
+            terminalRepo.updatePid(terminal.id, null)
+          }
+          continue
+        }
+
         if (terminal.scopeType === 'directory') {
           terminalRepo.delete(terminal.id)
         } else {
+          terminalRepo.updatePid(terminal.id, null)
           terminalRepo.updateStatus(terminal.id, 'disconnected')
         }
       }
@@ -214,10 +313,7 @@ export function createTerminalService(
         updatedAt: now,
       }
 
-      const created = createStoredSession(session, buildWorktreeEnv(project, worktree))
-      if (input.initialCommand) {
-        ptyManager.write(created.id, `${input.initialCommand}\n`)
-      }
+      const created = createStoredSession(session, { initialCommand: input.initialCommand })
       self.onBroadcast?.({ type: 'terminal-created', terminal: created })
       return created
     },
@@ -283,7 +379,7 @@ export function createTerminalService(
         updatedAt: now,
       }
 
-      const created = createStoredSession(session, buildDirectoryEnv(scope))
+      const created = createStoredSession(session, { initialCommand: input.initialCommand })
       if (input.initialCommand) {
         ptyManager.write(created.id, `${input.initialCommand}\n`)
       }
@@ -313,9 +409,18 @@ export function createTerminalService(
       }
 
       const { scopeId, scopeType } = terminal
+      terminalIdsBeingDeleted.add(id)
 
-      if (terminal.status === 'running') {
-        ptyManager.kill(id)
+      try {
+        if (terminal.status === 'running') {
+          ptyManager.kill(id)
+        }
+
+        if (isPersistentWorktreeTerminal(terminal)) {
+          tmuxManager.killSession(id)
+        }
+      } finally {
+        terminalIdsBeingDeleted.delete(id)
       }
 
       terminalRepo.delete(id)
@@ -342,38 +447,39 @@ export function createTerminalService(
       if (!terminal.worktreeId) {
         throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
       }
-      const worktree = worktreeRepo.findById(terminal.worktreeId)
-      if (!worktree) {
-        throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
+      const { project, worktree } = loadWorktreeContext(terminal)
+
+      if (isPersistentWorktreeTerminal(terminal) && !tmuxManager.hasSession(id)) {
+        tmuxManager.createSession({
+          terminalId: id,
+          cwd: worktree.path,
+          shell: terminal.shell,
+          env: buildWorktreeEnv(project, worktree),
+        })
       }
 
-      if (!terminal.projectId) {
-        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
-      }
-      const project = projectRepo.findById(terminal.projectId)
-      if (!project) {
-        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
-      }
-
-      if (!fs.existsSync(worktree.path)) {
-        throw new AppError(WORKTREE_PATH_NOT_FOUND, 'Worktree path not found')
-      }
-
-      const runtime = ptyManager.create({
-        terminalId: id,
-        shell: terminal.shell,
-        cwd: worktree.path,
-        cols: terminal.cols,
-        rows: terminal.rows,
-        env: buildWorktreeEnv(project, worktree),
-      })
-
-      terminalRepo.updatePidAndStatus(id, runtime.pty.pid, 'running')
-      attachExitHandler(terminal)
-
-      const updated = terminalRepo.findById(id)!
+      const updated = createRuntime(terminal)
       self.onBroadcast?.({ type: 'terminal-updated', terminal: updated })
       return updated
+    },
+
+    ensureTerminalRuntime(id: string): TerminalSession {
+      const terminal = self.getTerminal(id)
+      if (ptyManager.has(id)) {
+        return terminal
+      }
+
+      if (terminal.scopeType === 'directory') {
+        self.reconcileTerminalStatuses()
+        throw new AppError('PTY_NOT_FOUND', 'PTY process not found')
+      }
+
+      if (isPersistentWorktreeTerminal(terminal) && tmuxManager.hasSession(id)) {
+        return createRuntime(terminal)
+      }
+
+      self.reconcileTerminalStatuses()
+      throw new AppError('PTY_NOT_FOUND', 'PTY process not found')
     },
 
     writeToTerminal(id: string, data: string): void {

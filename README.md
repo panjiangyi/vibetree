@@ -8,6 +8,7 @@ Local Git worktree manager with web-based terminals.
 - Create, switch, and remove Git worktrees
 - Open web-based terminals attached to any worktree
 - Terminal sessions persist across page refreshes
+- Worktree terminals can persist across browser disconnects and server restarts via tmux
 - All data stored locally in SQLite
 
 ## Requirements
@@ -61,6 +62,8 @@ VibeTree is a monorepo with three packages:
 - `packages/shared` - Shared TypeScript types and protocols
 - `apps/server` - Fastify backend with SQLite, node-pty, and Git integration
 - `apps/web` - React frontend with xterm.js terminals
+
+Worktree terminals now prefer the repo-bundled `tmux` runtime in `tools/tmux-runtime/` when available, so reconnecting later can reattach to the same shell session instead of starting a fresh PTY.
 
 ## Security
 

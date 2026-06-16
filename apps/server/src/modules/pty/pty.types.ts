@@ -12,9 +12,18 @@ export type PtyRuntimeSession = {
 
 export type CreatePtyInput = {
   terminalId: string
-  shell: string
   cwd: string
   cols: number
   rows: number
   env: Record<string, string>
-}
+} & (
+  | {
+      launch: 'shell'
+      shell: string
+    }
+  | {
+      launch: 'command'
+      file: string
+      args: string[]
+    }
+)

@@ -27,8 +27,17 @@ export function registerTerminalWebSocket(
 
         switch (message.type) {
           case 'attach': {
-            const terminal = terminalService.getTerminal(message.terminalId)
-            const runtime = ptyManager.get(message.terminalId)
+            terminalService.getTerminal(message.terminalId)
+
+            let runtime = ptyManager.get(message.terminalId) ?? null
+            if (!runtime) {
+              try {
+                terminalService.ensureTerminalRuntime(message.terminalId)
+                runtime = ptyManager.get(message.terminalId) ?? null
+              } catch {
+                runtime = null
+              }
+            }
 
             if (!runtime) {
               terminalService.reconcileTerminalStatuses()

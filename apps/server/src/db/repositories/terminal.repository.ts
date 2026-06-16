@@ -97,6 +97,7 @@ export function createTerminalRepository(db: Database.Database) {
   const updateTitleStmt = db.prepare('UPDATE terminal_sessions SET title = ?, updated_at = ? WHERE id = ?')
   const updateStatusStmt = db.prepare('UPDATE terminal_sessions SET status = ?, updated_at = ? WHERE id = ?')
   const updatePidAndStatusStmt = db.prepare('UPDATE terminal_sessions SET pid = ?, status = ?, updated_at = ? WHERE id = ?')
+  const updatePidStmt = db.prepare('UPDATE terminal_sessions SET pid = ?, updated_at = ? WHERE id = ?')
   const markExitedStmt = db.prepare('UPDATE terminal_sessions SET status = ?, exit_code = ?, updated_at = ? WHERE id = ?')
   const markWorktreeRunningAsDisconnectedStmt = db.prepare("UPDATE terminal_sessions SET status = 'disconnected', updated_at = ? WHERE status = 'running' AND scope_type = 'worktree'")
   const deleteDirectorySessionsStmt = db.prepare("DELETE FROM terminal_sessions WHERE scope_type = 'directory'")
@@ -163,6 +164,10 @@ export function createTerminalRepository(db: Database.Database) {
 
     updatePidAndStatus(id: string, pid: number, status: TerminalStatus): void {
       updatePidAndStatusStmt.run(pid, status, new Date().toISOString(), id)
+    },
+
+    updatePid(id: string, pid: number | null): void {
+      updatePidStmt.run(pid, new Date().toISOString(), id)
     },
 
     markExited(id: string, exitCode: number | null): void {

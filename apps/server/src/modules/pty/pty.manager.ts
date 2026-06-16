@@ -28,7 +28,11 @@ export function createPtyManager() {
     },
 
     create(input: CreatePtyInput): PtyRuntimeSession {
-      const launchConfig = buildShellLaunchConfig(input.shell)
+      const launchConfig =
+        input.launch === 'shell'
+          ? buildShellLaunchConfig(input.shell)
+          : { shell: input.file, args: input.args, env: {} }
+
       const ptyProcess: IPty = pty.spawn(launchConfig.shell, launchConfig.args, {
         name: 'xterm-256color',
         cols: input.cols,

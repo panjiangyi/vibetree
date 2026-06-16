@@ -31,6 +31,14 @@ export default function App() {
   }, [checkSession])
 
   useEffect(() => {
+    const unsubscribe = terminalSocket.onUnauthorized(() => {
+      void checkSession()
+    })
+
+    return unsubscribe
+  }, [checkSession])
+
+  useEffect(() => {
     if (authStatus !== 'authenticated') {
       terminalSocket.disconnect()
       return

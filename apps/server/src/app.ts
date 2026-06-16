@@ -13,6 +13,7 @@ import { createWorktreeService } from './modules/worktrees/worktree.service.js'
 import { createTerminalService } from './modules/terminals/terminal.service.js'
 import { createAuthService } from './modules/auth/auth.service.js'
 import { createPtyManager } from './modules/pty/pty.manager.js'
+import { createTmuxManager } from './modules/tmux/tmux.manager.js'
 import { createFsService } from './modules/fs/fs.service.js'
 import { registerAuthRoutes } from './routes/auth.routes.js'
 import { registerHealthRoutes } from './routes/health.routes.js'
@@ -41,6 +42,7 @@ export async function buildApp(config: AppConfig) {
 
   // Initialize PTY manager
   const ptyManager = createPtyManager()
+  const tmuxManager = createTmuxManager()
 
   // Initialize services
   const terminalService = createTerminalService(
@@ -48,6 +50,7 @@ export async function buildApp(config: AppConfig) {
     worktreeRepo,
     terminalRepo,
     ptyManager,
+    tmuxManager,
     config
   )
   const worktreeService = createWorktreeService(projectRepo, worktreeRepo, terminalRepo, terminalService)
@@ -62,7 +65,6 @@ export async function buildApp(config: AppConfig) {
 
   // Directory terminals are ephemeral; worktree terminals can be recovered.
   terminalRepo.deleteDirectorySessions()
-  terminalRepo.markWorktreeRunningAsDisconnected()
 
   // Register plugins
   await app.register(cookie)

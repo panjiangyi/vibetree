@@ -7,6 +7,7 @@ class TerminalSocket {
   private ws: WebSocket | null = null
   private listeners = new Set<Listener>()
   private reconnectListeners = new Set<() => void>()
+  private unauthorizedListeners = new Set<() => void>()
   private queue: TerminalClientMessage[] = []
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
   private connecting = false
@@ -41,9 +42,16 @@ class TerminalSocket {
       }
     }
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (event) => {
       this.ws = null
       this.connecting = false
+      if (event.code === 4401) {
+        this.queue = []
+        for (const listener of this.unauthorizedListeners) {
+          listener()
+        }
+        return
+      }
       if (!this.manualDisconnect) {
         this.reconnectTimeout = setTimeout(() => this.connect(), 1000)
       }
@@ -83,12 +91,23 @@ class TerminalSocket {
 
   onMessage(listener: Listener) {
     this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   onReconnect(listener: () => void) {
     this.reconnectListeners.add(listener)
-    return () => this.reconnectListeners.delete(listener)
+    return () => {
+      this.reconnectListeners.delete(listener)
+    }
+  }
+
+  onUnauthorized(listener: () => void) {
+    this.unauthorizedListeners.add(listener)
+    return () => {
+      this.unauthorizedListeners.delete(listener)
+    }
   }
 
   disconnect() {

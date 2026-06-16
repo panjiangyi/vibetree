@@ -187,6 +187,15 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       atBottomRef.current = true
     }
 
+    const attachTerminal = () => {
+      fitAddon.fit()
+      terminalSocket.attach({
+        terminalId,
+        cols: term.cols,
+        rows: term.rows,
+      })
+    }
+
     let resizeFrameId: number | null = null
     let scrollAfterResize = false
 
@@ -232,12 +241,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
 
     let initialAttachFrameId: number | null = requestAnimationFrame(() => {
       initialAttachFrameId = null
-      fitAddon.fit()
-      terminalSocket.attach({
-        terminalId,
-        cols: term.cols,
-        rows: term.rows,
-      })
+      attachTerminal()
       requestAnimationFrame(scrollToBottom)
     })
 
@@ -760,7 +764,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
 
     // Handle messages
     const unsubscribe = terminalSocket.onMessage((message) => {
-      if (message.type !== 'output' && message.type !== 'exit') return
+      if (message.type !== 'output' && message.type !== 'exit' && message.type !== 'error') return
       if (message.terminalId !== terminalId) return
 
       if (message.type === 'output') {
@@ -770,12 +774,21 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       if (message.type === 'exit') {
         enqueueOutput(`\r\n\x1b[33mTerminal exited with code ${message.exitCode ?? ''}\x1b[0m\r\n`)
       }
+
+      if (message.type === 'error' && message.code === 'PTY_NOT_FOUND') {
+        enqueueOutput('\r\n\x1b[31mTerminal session is no longer available. Reopen or restart the terminal.\x1b[0m\r\n')
+      }
+    })
+    const unsubscribeReconnect = terminalSocket.onReconnect(() => {
+      attachTerminal()
+      requestAnimationFrame(scrollToBottom)
     })
 
     term.focus()
 
     return () => {
       unsubscribe()
+      unsubscribeReconnect()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       textarea.removeEventListener('beforeinput', handleBeforeInput, true)
       textarea.removeEventListener('compositionstart', handleCompositionStart)

@@ -42,10 +42,39 @@ function createMockPtyManager() {
       runtimes.delete(terminalId)
       exitCallbacks.get(terminalId)?.(exitCode)
     },
+    dropRuntime(terminalId: string) {
+      runtimes.delete(terminalId)
+    },
   }
 }
 
-async function createContext() {
+function createMockTmuxManager(isAvailable = false) {
+  const sessions = new Set<string>()
+
+  return {
+    binary: 'tmux',
+    isAvailable() {
+      return isAvailable
+    },
+    hasSession(terminalId: string) {
+      return sessions.has(terminalId)
+    },
+    createSession(input: { terminalId: string }) {
+      sessions.add(input.terminalId)
+    },
+    killSession(terminalId: string) {
+      sessions.delete(terminalId)
+    },
+    getAttachSpawnSpec(terminalId: string) {
+      return { file: 'tmux', args: ['attach-session', '-t', `vibetree-${terminalId}`] }
+    },
+    sessionNameForTerminal(terminalId: string) {
+      return `vibetree-${terminalId}`
+    },
+  }
+}
+
+async function createContext(options?: { tmuxAvailable?: boolean }) {
   const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'vibetree-terminal-test-'))
   tempDirs.push(rootPath)
 
@@ -54,11 +83,13 @@ async function createContext() {
   const worktreeRepo = createWorktreeRepository(db)
   const terminalRepo = createTerminalRepository(db)
   const ptyManager = createMockPtyManager()
+  const tmuxManager = createMockTmuxManager(options?.tmuxAvailable ?? false)
   const terminalService = createTerminalService(
     projectRepo,
     worktreeRepo,
     terminalRepo,
     ptyManager as never,
+    tmuxManager as never,
     {
       host: '127.0.0.1',
       port: 3767,
@@ -83,7 +114,7 @@ async function createContext() {
     }
   )
 
-  return { rootPath, db, terminalService, terminalRepo, ptyManager }
+  return { rootPath, db, projectRepo, worktreeRepo, terminalService, terminalRepo, ptyManager, tmuxManager }
 }
 
 afterEach(async () => {
@@ -127,6 +158,55 @@ describe('directory terminals', () => {
     ptyManager.emitExit(second.id, 0)
 
     expect(terminalService.listTerminals()).toEqual([])
+
+    db.close()
+  })
+})
+
+describe('worktree terminals with tmux persistence', () => {
+  it('restores a disconnected runtime when the tmux session still exists', async () => {
+    const { rootPath, db, projectRepo, worktreeRepo, terminalService, ptyManager, terminalRepo } =
+      await createContext({ tmuxAvailable: true })
+    const repoPath = path.join(rootPath, 'repo')
+    const worktreePath = path.join(rootPath, 'repo-wt')
+    await fs.mkdir(repoPath)
+    await fs.mkdir(worktreePath)
+
+    const now = new Date().toISOString()
+    projectRepo.insert({
+      id: 'project_1',
+      name: 'repo',
+      repoPath,
+      worktreeBasePath: path.join(rootPath, '.worktree'),
+      mainBranch: 'main',
+      setupScript: null,
+      devServerScript: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    worktreeRepo.upsert({
+      id: 'worktree_1',
+      projectId: 'project_1',
+      name: 'feature-a',
+      displayName: 'Feature A',
+      path: worktreePath,
+      branch: 'feature-a',
+      head: null,
+      isMain: false,
+      isDirty: false,
+      createdByApp: true,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    const created = terminalService.createTerminal('worktree_1')
+    ptyManager.dropRuntime(created.id)
+    terminalRepo.updatePid(created.id, null)
+
+    const restored = terminalService.ensureTerminalRuntime(created.id)
+
+    expect(restored.status).toBe('running')
+    expect(restored.pid).toBe(123)
 
     db.close()
   })
