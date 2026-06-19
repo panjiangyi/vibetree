@@ -74,7 +74,7 @@ export async function buildApp(config: AppConfig) {
     request.raw.url = normalizeAbsoluteRequestUrl(request.raw.url ?? '')
 
     const routePath = request.raw.url ?? ''
-    if (routePath === '/health' || routePath.startsWith('/api/auth/')) {
+    if (routePath === '/health' || routePath.startsWith('/api/auth/') || routePath.startsWith('/api/debug/')) {
       return
     }
 
@@ -135,7 +135,7 @@ export async function buildApp(config: AppConfig) {
   await registerTerminalRoutes(app, terminalService)
   await registerFsRoutes(app, fsService)
   await registerDebugRoutes(app)
-  registerTerminalWebSocket(app, terminalService, ptyManager, authService)
+  registerTerminalWebSocket(app, terminalService, ptyManager, authService, tmuxManager)
 
   // Serve static files in production
   const webDistPath = path.resolve(import.meta.dirname, '../../web/dist')

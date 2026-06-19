@@ -18,10 +18,25 @@ export default defineConfig(({ mode }) => ({
     host: true,
     port: 5173,
     proxy: {
-      '/api': 'http://127.0.0.1:3767',
+      '/api': {
+        target: 'http://127.0.0.1:3767',
+        configure: (proxy) => {
+          // Preserve the client's original Host so Fastify's same-origin check
+          // (which reads request.host via trustProxy → X-Forwarded-Host) matches
+          // the browser's Origin header regardless of what host the client used.
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (req.headers.host) proxyReq.setHeader('x-forwarded-host', req.headers.host)
+          })
+        },
+      },
       '/ws': {
         target: 'ws://127.0.0.1:3767',
         ws: true,
+        configure: (proxy) => {
+          proxy.on('proxyReqWs', (proxyReq, req) => {
+            if (req.headers.host) proxyReq.setHeader('x-forwarded-host', req.headers.host)
+          })
+        },
       },
     },
   },

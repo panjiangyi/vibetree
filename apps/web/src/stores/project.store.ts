@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Project, Worktree, CreateProjectInput, CreateWorktreeInput, UpdateProjectInput, UpdateWorktreeInput } from '@vibetree/shared'
 import * as projectsApi from '../api/projects.api.js'
 import * as worktreesApi from '../api/worktrees.api.js'
+import { useTerminalStore } from './terminal.store.js'
 
 type ProjectStore = {
   projects: Project[]
@@ -143,6 +144,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           break
         }
       }
+      // Cascade-deleted terminals are not broadcast over WebSocket — reload
+      // the terminal list so the store doesn't hold stale "running" records.
+      await useTerminalStore.getState().loadTerminals()
       set({ loading: false })
     } catch (error) {
       set({ error: (error as Error).message, loading: false })

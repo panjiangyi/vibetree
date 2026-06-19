@@ -60,7 +60,7 @@ export function createPtyManager() {
       }
 
       ptyProcess.onData((data) => {
-        outputBuffer.push(data)
+        // Live clients get full raw data (DA responses are needed for the current xterm session)
         for (const client of runtime.clients) {
           sendWs(client, {
             type: 'output',
@@ -68,6 +68,12 @@ export function createPtyManager() {
             data,
           })
         }
+        // Strip device-attribute request/response sequences before buffering.
+        // They accumulate on every tab switch (xterm init triggers DA queries,
+        // PTY responds with e.g. \033[?1;2c / \033[>0;276;0c) and corrupt the
+        // replay for future sessions that never sent the originating query.
+        const replayData = data.replace(/\x1b\[[\?|>][\d;]*c/g, '')
+        if (replayData) outputBuffer.push(replayData)
       })
 
       sessions.set(input.terminalId, runtime)

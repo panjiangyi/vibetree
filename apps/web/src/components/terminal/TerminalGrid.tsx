@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { ReactGridLayout } from 'react-grid-layout/legacy'
 import type { LayoutItem } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
-import { X } from 'lucide-react'
+import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { GRID_COLS, GRID_ROWS, useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
@@ -182,12 +182,30 @@ function MobileTerminalFocus() {
 
   return (
     <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden">
-      <div className="flex-1 min-h-0 app-panel flex flex-col overflow-hidden">
+      <div className="relative flex-1 min-h-0 app-panel flex flex-col overflow-hidden">
         <TerminalPane
           terminalId={activeTerminalId}
           fontSize={12}
           onActionsChange={setTerminalActions}
         />
+
+        {/* Floating scroll buttons — overlaid on the terminal, left side */}
+        <div className="absolute left-2 bottom-2 flex flex-col gap-1 z-10 pointer-events-none">
+          <button
+            onPointerDown={(e) => { e.preventDefault(); terminalActions?.scrollLines(-10) }}
+            className="pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full shadow-lg border opacity-60 active:opacity-100 app-panel-strong"
+            aria-label="Scroll up"
+          >
+            <ChevronUp className="w-4 h-4" />
+          </button>
+          <button
+            onPointerDown={(e) => { e.preventDefault(); terminalActions?.scrollLines(10) }}
+            className="pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full shadow-lg border opacity-60 active:opacity-100 app-panel-strong"
+            aria-label="Scroll down"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <Suspense fallback={null}>

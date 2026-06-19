@@ -139,6 +139,12 @@ export function createTmuxManager() {
       if (input.initialCommand) {
         execTmux(['send-keys', '-t', sessionName, input.initialCommand, 'C-m'])
       }
+      // Enable mouse mode so scroll wheel works within tmux panes
+      try {
+        execTmux(['set-option', '-t', sessionName, 'mouse', 'on'])
+      } catch {
+        // Non-fatal: mouse scroll won't work but session is usable
+      }
     } catch (error) {
       throw normalizeError(error)
     }
@@ -159,6 +165,18 @@ export function createTmuxManager() {
     env: binarySpec.env,
   })
 
+  const scrollSession = (terminalId: string, direction: 'up' | 'down', lines: number): void => {
+    const sessionName = sessionNameForTerminal(terminalId)
+    try {
+      execTmux(['copy-mode', '-e', '-t', sessionName])
+      const cmd = direction === 'up' ? 'scroll-up' : 'scroll-down'
+      // -N count repeats the command N times in a single tmux invocation
+      execTmux(['send-keys', '-t', sessionName, '-N', String(Math.max(1, lines)), '-X', cmd])
+    } catch {
+      // Non-fatal: terminal might not be a tmux session
+    }
+  }
+
   return {
     binary: binarySpec.binary,
     isAvailable,
@@ -167,5 +185,6 @@ export function createTmuxManager() {
     killSession,
     getAttachSpawnSpec,
     sessionNameForTerminal,
+    scrollSession,
   }
 }

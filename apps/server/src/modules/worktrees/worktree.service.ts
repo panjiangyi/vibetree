@@ -174,14 +174,14 @@ export function createWorktreeService(
         keptIds.push(worktree.id)
       }
 
-      // Clean up worktrees that no longer exist in git
+      // Clean up worktrees that no longer exist in git.
+      // Don't gate on runningCount — if the git path is gone the terminals
+      // can't actually be running; orphaned "running" DB records would
+      // block cleanup forever. DB cascade handles terminal record removal.
       const existingWorktrees = worktreeRepo.findByProjectId(projectId)
       for (const wt of existingWorktrees) {
         if (!keptIds.includes(wt.id)) {
-          const runningCount = terminalRepo.countRunningByWorktreeId(wt.id)
-          if (runningCount === 0) {
-            worktreeRepo.delete(wt.id)
-          }
+          worktreeRepo.delete(wt.id)
         }
       }
     },
@@ -260,6 +260,24 @@ export function createWorktreeService(
         throw new AppError(CANNOT_REMOVE_MAIN_WORKTREE, 'Cannot remove main worktree')
       }
 
+      const project = projectRepo.findById(wt.projectId)
+      if (!project) {
+        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
+      }
+
+      // Check git existence first — stale worktrees (path gone from git) should
+      // always be deletable regardless of DB terminal state or merge status.
+      // DB cascade handles terminal record cleanup.
+      const gitWorktrees = await git.listWorktrees(project.repoPath)
+      const existsInGit = gitWorktrees.some(
+        (info) => normalizePath(info.path) === normalizePath(wt.path)
+      )
+      if (!existsInGit) {
+        worktreeRepo.delete(worktreeId)
+        return
+      }
+
+      // Worktree exists in git — apply the standard guards
       const runningCount = terminalRepo.countRunningByWorktreeId(worktreeId)
       if (runningCount > 0) {
         throw new AppError(
@@ -272,11 +290,6 @@ export function createWorktreeService(
         throw new AppError(WORKTREE_DIRTY, 'Cannot remove dirty worktree')
       }
 
-      const project = projectRepo.findById(wt.projectId)
-      if (!project) {
-        throw new AppError(PROJECT_NOT_FOUND, 'Project not found')
-      }
-
       const mergeCheck = await getWorktreeMergeCheck(project, wt)
       if (!mergeCheck.isMergedToTarget) {
         const reason = mergeCheck.reason
@@ -286,17 +299,6 @@ export function createWorktreeService(
           WORKTREE_NOT_MERGED,
           `Cannot remove worktree because branch is not merged into ${mergeCheck.targetRef}.${reason}`
         )
-      }
-
-      // Verify path exists in git worktree list
-      const gitWorktrees = await git.listWorktrees(project.repoPath)
-      const existsInGit = gitWorktrees.some(
-        (info) => normalizePath(info.path) === normalizePath(wt.path)
-      )
-      if (!existsInGit) {
-        // Just remove from DB if not in git
-        worktreeRepo.delete(worktreeId)
-        return
       }
 
       await git.removeWorktree({

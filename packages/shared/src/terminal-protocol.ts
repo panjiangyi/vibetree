@@ -22,6 +22,13 @@ export type TerminalClientMessage =
       type: 'close'
       terminalId: string
     }
+  | { type: 'ping' }
+  | {
+      type: 'scroll'
+      terminalId: string
+      direction: 'up' | 'down'
+      lines: number
+    }
 
 export type TerminalServerMessage =
   | {
@@ -58,3 +65,4 @@ export type TerminalServerMessage =
       type: 'terminal-updated'
       terminal: TerminalSession
     }
+  | { type: 'pong' }

@@ -21,6 +21,7 @@ type RecentInputTextChunk = {
 export type TerminalViewActions = {
   copySelection: () => void
   focus: () => void
+  scrollLines: (delta: number) => void
 }
 
 const IME_ECHO_SUPPRESSION_MS = 500
@@ -181,6 +182,67 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     term.loadAddon(fitAddon)
     term.loadAddon(webLinksAddon)
     term.open(containerRef.current)
+
+    // Mobile touch-scroll.
+    // tmux uses the alternate screen buffer — xterm.js has no scrollback there,
+    // so term.scrollLines() is a no-op. WheelEvents also fail because they rely
+    // on xterm.js mouse tracking being active, which isn't guaranteed after a
+    // reconnect/replay.
+    //
+    // Solution: send SGR mouse wheel escape sequences directly via the PTY.
+    // Tmux reads these from its PTY input when "set -g mouse on" is active and
+    // scrolls the pane history without entering copy mode.
+    // Format: \x1b[<64;col;rowM = scroll up, \x1b[<65;col;rowM = scroll down.
+    // For the normal xterm.js buffer (no tmux) we fall back to term.scrollLines().
+
+    // Mobile touch-scroll.
+    // tmux runs in the alternate screen — xterm.js has no scrollback there.
+    // We send a 'scroll' WebSocket message; the server runs tmux copy-mode + scroll-up/down.
+    // For the normal buffer (non-tmux), we use xterm.js term.scrollLines() directly.
+    const sendScroll = (up: boolean, lines: number) => {
+      if (term.buffer.active !== term.buffer.normal) {
+        terminalSocket.send({ type: 'scroll', terminalId, direction: up ? 'up' : 'down', lines })
+      } else {
+        term.scrollLines(up ? -lines : lines)
+        const buf = term.buffer.active
+        atBottomRef.current = buf.baseY - buf.viewportY <= 1
+      }
+    }
+
+    let touchScrollY = 0
+    let touchEngaged = false
+    let touchAccumPx = 0
+    // iOS natural scrolling: finger DOWN = see older content (scroll up).
+    // delta = touchScrollY - currentY: finger down → delta < 0 → touchAccumPx < 0 → up=true ✓
+    const PX_PER_STEP = 10  // pixels of swipe per scroll dispatch
+    const LINES_PER_STEP = 3 // lines scrolled per dispatch
+
+    const onTouchStartScroll = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      touchScrollY = e.touches[0]!.clientY
+      touchEngaged = false
+      touchAccumPx = 0
+    }
+    const onTouchMoveScroll = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      const currentY = e.touches[0]!.clientY
+      const delta = touchScrollY - currentY
+      touchScrollY = currentY
+      if (!touchEngaged && Math.abs(delta) < 4) return
+      touchEngaged = true
+
+      touchAccumPx += delta
+      const steps = Math.floor(Math.abs(touchAccumPx) / PX_PER_STEP)
+      if (steps > 0) {
+        sendScroll(touchAccumPx < 0, steps * LINES_PER_STEP)
+        touchAccumPx -= steps * PX_PER_STEP * Math.sign(touchAccumPx)
+      }
+
+      e.preventDefault()
+    }
+    const container = containerRef.current
+    container.addEventListener('touchstart', onTouchStartScroll, { passive: true })
+    container.addEventListener('touchmove', onTouchMoveScroll, { passive: false })
 
     const scrollToBottom = () => {
       term.scrollToBottom()
@@ -706,6 +768,10 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     onActionsChange?.({
       copySelection: () => copyText(term.getSelection()),
       focus: () => term.focus(),
+      scrollLines: (delta: number) => {
+        // delta < 0 = scroll up (older), delta > 0 = scroll down (newer)
+        sendScroll(delta < 0, Math.abs(delta))
+      },
     })
 
     const resizeObserver = new ResizeObserver(() => {
@@ -815,6 +881,8 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
         cancelAnimationFrame(outputWriteFrameId)
       }
       pendingOutput = ''
+      container.removeEventListener('touchstart', onTouchStartScroll)
+      container.removeEventListener('touchmove', onTouchMoveScroll)
       resizeObserver.disconnect()
       scrollDisposable.dispose()
       writeParsedDisposable.dispose()

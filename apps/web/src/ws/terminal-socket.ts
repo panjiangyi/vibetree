@@ -12,6 +12,8 @@ class TerminalSocket {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
   private connecting = false
   private manualDisconnect = false
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null
+  private pongTimeout: ReturnType<typeof setTimeout> | null = null
 
   connect() {
     if (this.connecting) return
@@ -33,10 +35,18 @@ class TerminalSocket {
       for (const listener of this.reconnectListeners) {
         listener()
       }
+      this.startHeartbeat()
     }
 
     this.ws.onmessage = (event) => {
       const message = JSON.parse(event.data) as TerminalServerMessage
+      if (message.type === 'pong') {
+        if (this.pongTimeout) {
+          clearTimeout(this.pongTimeout)
+          this.pongTimeout = null
+        }
+        return
+      }
       for (const listener of this.listeners) {
         listener(message)
       }
@@ -45,6 +55,7 @@ class TerminalSocket {
     this.ws.onclose = (event) => {
       this.ws = null
       this.connecting = false
+      this.stopHeartbeat()
       if (event.code === 4401) {
         this.queue = []
         for (const listener of this.unauthorizedListeners) {
@@ -60,6 +71,35 @@ class TerminalSocket {
     this.ws.onerror = () => {
       this.connecting = false
       this.ws?.close()
+    }
+  }
+
+  reconnect() {
+    this.disconnect()
+    setTimeout(() => this.connect(), 100)
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat()
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.send({ type: 'ping' })
+        this.pongTimeout = setTimeout(() => {
+          // No pong received — connection is stale, force close to trigger reconnect
+          this.ws?.close()
+        }, 10_000)
+      }
+    }, 30_000)
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
+    }
+    if (this.pongTimeout) {
+      clearTimeout(this.pongTimeout)
+      this.pongTimeout = null
     }
   }
 
@@ -114,6 +154,7 @@ class TerminalSocket {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout)
     }
+    this.stopHeartbeat()
     this.manualDisconnect = true
     this.connecting = false
     this.ws?.close()

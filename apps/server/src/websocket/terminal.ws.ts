@@ -4,12 +4,14 @@ import { sendWs, parseWsMessage } from './protocol.js'
 import type { TerminalService } from '../modules/terminals/terminal.service.js'
 import type { PtyManager } from '../modules/pty/pty.manager.js'
 import type { AuthService } from '../modules/auth/auth.service.js'
+import type { TmuxManager } from '../modules/tmux/tmux.manager.js'
 
 export function registerTerminalWebSocket(
   app: FastifyInstance,
   terminalService: TerminalService,
   ptyManager: PtyManager,
-  authService: AuthService
+  authService: AuthService,
+  tmuxManager: TmuxManager
 ) {
   terminalService.onBroadcast = (event) => {
     const sockets = authService.getAllSockets()
@@ -81,6 +83,16 @@ export function registerTerminalWebSocket(
 
           case 'close': {
             terminalService.deleteTerminal(message.terminalId)
+            break
+          }
+
+          case 'ping': {
+            sendWs(ws, { type: 'pong' })
+            break
+          }
+
+          case 'scroll': {
+            tmuxManager.scrollSession(message.terminalId, message.direction, message.lines)
             break
           }
 

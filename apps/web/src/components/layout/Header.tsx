@@ -1,4 +1,4 @@
-import { Menu, PanelLeftClose, PanelLeftOpen, Terminal, Plus, RefreshCw, Settings, FolderOpen, LogOut } from 'lucide-react'
+import { Menu, PanelLeftClose, PanelLeftOpen, Terminal, Plus, RefreshCw, Settings, FolderOpen, LogOut, WifiOff } from 'lucide-react'
 import { useAuthStore } from '../../stores/auth.store.js'
 import { useLayoutStore } from '../../stores/layout.store.js'
 import { useUiStore } from '../../stores/ui.store.js'
@@ -145,6 +145,15 @@ export function Header() {
         Refresh
       </button>
 
+      <button
+        onClick={() => terminalSocket.reconnect()}
+        className="app-button-secondary hidden md:flex items-center gap-1 py-1.5"
+        title="Reconnect WebSocket without page reload"
+      >
+        <WifiOff className="w-4 h-4" />
+        Reconnect
+      </button>
+
       <div className="hidden md:block flex-1" />
 
       <div className="hidden md:flex items-center gap-1.5 text-xs md:text-sm app-muted">
@@ -159,6 +168,14 @@ export function Header() {
         title="Open terminal"
       >
         <FolderOpen className="w-4 h-4" />
+      </button>
+
+      <button
+        onClick={() => terminalSocket.reconnect()}
+        className="app-icon-button p-2 md:hidden"
+        title="Reconnect"
+      >
+        <WifiOff className="w-4 h-4" />
       </button>
 
       <button
