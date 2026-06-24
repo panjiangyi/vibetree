@@ -30,28 +30,52 @@ const RECENT_INPUT_TEXT_WINDOW_MS = 3000
 const MAX_RECENT_INPUT_TEXT_LENGTH = 300
 const MAX_OUTPUT_CHARS_PER_FRAME = 64 * 1024
 
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : ''
+      const commaIndex = result.indexOf(',')
+      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result)
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read clipboard image'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function getClipboardImageFile(event: ClipboardEvent): File | null {
+  const files = Array.from(event.clipboardData?.files ?? [])
+  const file = files.find((item) => item.type.startsWith('image/'))
+  if (file) return file
+
+  const items = Array.from(event.clipboardData?.items ?? [])
+  const imageItem = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'))
+  return imageItem?.getAsFile() ?? null
+}
+
 function copyText(text: string): boolean {
   if (!text) return false
 
+  const copiedWithFallback = fallbackCopyText(text)
   if (navigator.clipboard?.writeText) {
-    void navigator.clipboard.writeText(text).catch(() => fallbackCopyText(text))
-    return true
+    void navigator.clipboard.writeText(text).catch(() => undefined)
   }
 
-  fallbackCopyText(text)
-  return true
+  return copiedWithFallback || Boolean(navigator.clipboard?.writeText)
 }
 
-function fallbackCopyText(text: string): void {
+function fallbackCopyText(text: string): boolean {
   const textarea = document.createElement('textarea')
   textarea.value = text
   textarea.setAttribute('readonly', '')
   textarea.style.position = 'fixed'
   textarea.style.opacity = '0'
+  textarea.style.pointerEvents = 'none'
   document.body.appendChild(textarea)
   textarea.select()
-  document.execCommand('copy')
+  const copied = document.execCommand('copy')
   document.body.removeChild(textarea)
+  return copied
 }
 
 function consumePendingImeEcho(data: string, pending: string): string | null {
@@ -184,21 +208,9 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     term.open(containerRef.current)
 
     // Mobile touch-scroll.
-    // tmux uses the alternate screen buffer — xterm.js has no scrollback there,
-    // so term.scrollLines() is a no-op. WheelEvents also fail because they rely
-    // on xterm.js mouse tracking being active, which isn't guaranteed after a
-    // reconnect/replay.
-    //
-    // Solution: send SGR mouse wheel escape sequences directly via the PTY.
-    // Tmux reads these from its PTY input when "set -g mouse on" is active and
-    // scrolls the pane history without entering copy mode.
-    // Format: \x1b[<64;col;rowM = scroll up, \x1b[<65;col;rowM = scroll down.
-    // For the normal xterm.js buffer (no tmux) we fall back to term.scrollLines().
-
-    // Mobile touch-scroll.
-    // tmux runs in the alternate screen — xterm.js has no scrollback there.
-    // We send a 'scroll' WebSocket message; the server runs tmux copy-mode + scroll-up/down.
-    // For the normal buffer (non-tmux), we use xterm.js term.scrollLines() directly.
+    // tmux runs in the alternate screen, where xterm.js has no scrollback.
+    // Keep tmux mouse mode off so browser text selection works; scroll buttons
+    // and touch scrolling use a WebSocket command that drives tmux copy-mode.
     const sendScroll = (up: boolean, lines: number) => {
       if (term.buffer.active !== term.buffer.normal) {
         terminalSocket.send({ type: 'scroll', terminalId, direction: up ? 'up' : 'down', lines })
@@ -241,6 +253,81 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       e.preventDefault()
     }
     const container = containerRef.current
+    let mouseSelectionStart: { x: number; y: number } | null = null
+    let mouseSelectionMoved = false
+    let cachedSelectionText = ''
+    let cachedSelectionTimeoutId: ReturnType<typeof setTimeout> | null = null
+
+    const clearCachedSelectionLater = () => {
+      if (cachedSelectionTimeoutId) {
+        clearTimeout(cachedSelectionTimeoutId)
+      }
+      cachedSelectionTimeoutId = setTimeout(() => {
+        cachedSelectionText = ''
+        cachedSelectionTimeoutId = null
+      }, 8000)
+    }
+
+    const rememberSelectionText = (text: string) => {
+      if (!text.trim()) return
+      cachedSelectionText = text
+      clearCachedSelectionLater()
+    }
+
+    const getNativeSelectionText = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return ''
+
+      const range = selection.getRangeAt(0)
+      const ancestor = range.commonAncestorContainer
+      const element = ancestor.nodeType === Node.ELEMENT_NODE ? ancestor : ancestor.parentElement
+      if (!(element instanceof Element) || !container.contains(element)) return ''
+
+      return selection.toString()
+    }
+
+    const getTerminalSelectionText = () => term.getSelection() || getNativeSelectionText() || cachedSelectionText
+
+    const updateCachedSelectionText = () => {
+      rememberSelectionText(term.getSelection() || getNativeSelectionText())
+    }
+
+    const handleMouseDownForCopy = (event: MouseEvent) => {
+      if (event.button !== 0) {
+        mouseSelectionStart = null
+        mouseSelectionMoved = false
+        return
+      }
+
+      mouseSelectionStart = { x: event.clientX, y: event.clientY }
+      mouseSelectionMoved = false
+    }
+
+    const handleMouseMoveForCopy = (event: MouseEvent) => {
+      if (!mouseSelectionStart) return
+      const dx = Math.abs(event.clientX - mouseSelectionStart.x)
+      const dy = Math.abs(event.clientY - mouseSelectionStart.y)
+      if (dx > 3 || dy > 3) {
+        mouseSelectionMoved = true
+      }
+      updateCachedSelectionText()
+    }
+
+    const handleMouseUpForCopy = (event: MouseEvent) => {
+      if (event.button !== 0 || !mouseSelectionStart) return
+
+      if (mouseSelectionMoved) {
+        updateCachedSelectionText()
+      }
+
+      mouseSelectionStart = null
+      mouseSelectionMoved = false
+    }
+
+    container.addEventListener('mousedown', handleMouseDownForCopy, true)
+    container.addEventListener('mousemove', handleMouseMoveForCopy, true)
+    container.addEventListener('mouseup', handleMouseUpForCopy, true)
+    document.addEventListener('selectionchange', updateCachedSelectionText)
     container.addEventListener('touchstart', onTouchStartScroll, { passive: true })
     container.addEventListener('touchmove', onTouchMoveScroll, { passive: false })
 
@@ -297,7 +384,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
 
       event.preventDefault()
       event.stopPropagation()
-      copyText(term.getSelection())
+      copyText(getTerminalSelectionText())
       return false
     })
 
@@ -651,6 +738,39 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       }, 0)
     }
 
+    const handleClipboardPaste = (event: ClipboardEvent) => {
+      const imageFile = getClipboardImageFile(event)
+      if (!imageFile) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      void readFileAsBase64(imageFile)
+        .then((dataBase64) => {
+          terminalSocket.send({
+            type: 'paste-image',
+            terminalId,
+            mimeType: imageFile.type,
+            dataBase64,
+          })
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : 'Failed to paste clipboard image'
+          logInputEvent({
+            terminalId,
+            source: 'app.clipboardImagePaste',
+            type: 'paste-image-error',
+            target: describeElement(textarea),
+            activeElement: describeElement(document.activeElement),
+            value: textarea.value,
+            valueLength: textarea.value.length,
+            selectionStart: textarea.selectionStart,
+            selectionEnd: textarea.selectionEnd,
+            data: message,
+            appState: getDebugState(),
+          })
+        })
+    }
+
     const handleTextInput = (event: Event) => {
       const inputEvent = event as InputEvent
       logEvent('textarea', event)
@@ -728,6 +848,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       }
     }
 
+    textarea.addEventListener('paste', handleClipboardPaste, true)
     textarea.addEventListener('beforeinput', handleBeforeInput, true)
     textarea.addEventListener('compositionstart', handleCompositionStart)
     textarea.addEventListener('compositionupdate', handleCompositionUpdate)
@@ -766,7 +887,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     termRef.current = term
     fitAddonRef.current = fitAddon
     onActionsChange?.({
-      copySelection: () => copyText(term.getSelection()),
+      copySelection: () => copyText(getTerminalSelectionText()),
       focus: () => term.focus(),
       scrollLines: (delta: number) => {
         // delta < 0 = scroll up (older), delta > 0 = scroll down (newer)
@@ -856,6 +977,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       unsubscribe()
       unsubscribeReconnect()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      textarea.removeEventListener('paste', handleClipboardPaste, true)
       textarea.removeEventListener('beforeinput', handleBeforeInput, true)
       textarea.removeEventListener('compositionstart', handleCompositionStart)
       textarea.removeEventListener('compositionupdate', handleCompositionUpdate)
@@ -871,6 +993,9 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       clearImeEchoData()
       clearRecentXtermData()
       clearRecentInputText()
+      if (cachedSelectionTimeoutId) {
+        clearTimeout(cachedSelectionTimeoutId)
+      }
       if (initialAttachFrameId != null) {
         cancelAnimationFrame(initialAttachFrameId)
       }
@@ -881,6 +1006,10 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
         cancelAnimationFrame(outputWriteFrameId)
       }
       pendingOutput = ''
+      container.removeEventListener('mousedown', handleMouseDownForCopy, true)
+      container.removeEventListener('mousemove', handleMouseMoveForCopy, true)
+      container.removeEventListener('mouseup', handleMouseUpForCopy, true)
+      document.removeEventListener('selectionchange', updateCachedSelectionText)
       container.removeEventListener('touchstart', onTouchStartScroll)
       container.removeEventListener('touchmove', onTouchMoveScroll)
       resizeObserver.disconnect()

@@ -1,3 +1,7 @@
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
 import type WebSocket from 'ws'
 import { sendWs, parseWsMessage } from './protocol.js'
@@ -6,6 +10,48 @@ import type { PtyManager } from '../modules/pty/pty.manager.js'
 import type { AuthService } from '../modules/auth/auth.service.js'
 import type { TmuxManager } from '../modules/tmux/tmux.manager.js'
 
+const MAX_CLIPBOARD_IMAGE_BYTES = 20 * 1024 * 1024
+const CLIPBOARD_IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+}
+
+function sanitizePathSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'terminal'
+}
+
+function decodeClipboardImage(mimeType: string, dataBase64: string): { buffer: Buffer; extension: string } {
+  const extension = CLIPBOARD_IMAGE_EXTENSIONS[mimeType]
+  if (!extension) {
+    throw new Error('Unsupported clipboard image type: ' + mimeType)
+  }
+
+  if (dataBase64.length > Math.ceil((MAX_CLIPBOARD_IMAGE_BYTES * 4) / 3) + 4) {
+    throw new Error('Clipboard image is too large')
+  }
+
+  const buffer = Buffer.from(dataBase64, 'base64')
+  if (buffer.length === 0) {
+    throw new Error('Clipboard image is empty')
+  }
+  if (buffer.length > MAX_CLIPBOARD_IMAGE_BYTES) {
+    throw new Error('Clipboard image is too large')
+  }
+
+  return { buffer, extension }
+}
+
+async function saveClipboardImage(input: { terminalId: string; mimeType: string; dataBase64: string }): Promise<string> {
+  const decoded = decodeClipboardImage(input.mimeType, input.dataBase64)
+  const dir = path.join(os.tmpdir(), 'vibetree-clipboard-images', sanitizePathSegment(input.terminalId))
+  await fs.mkdir(dir, { recursive: true, mode: 0o700 })
+
+  const filePath = path.join(dir, 'clipboard-' + Date.now() + '-' + randomUUID() + '.' + decoded.extension)
+  await fs.writeFile(filePath, decoded.buffer, { mode: 0o600 })
+  return filePath
+}
 export function registerTerminalWebSocket(
   app: FastifyInstance,
   terminalService: TerminalService,
@@ -52,6 +98,7 @@ export function registerTerminalWebSocket(
               return
             }
 
+            tmuxManager.disableMouseMode(message.terminalId)
             ptyManager.attachClient(message.terminalId, ws)
             ptyManager.resize(message.terminalId, message.cols, message.rows)
 
@@ -73,6 +120,24 @@ export function registerTerminalWebSocket(
 
           case 'input': {
             ptyManager.write(message.terminalId, message.data)
+            break
+          }
+
+          case 'paste-image': {
+            terminalService.getTerminal(message.terminalId)
+            const runtime = ptyManager.get(message.terminalId)
+            if (!runtime) {
+              sendWs(ws, {
+                type: 'error',
+                terminalId: message.terminalId,
+                code: 'PTY_NOT_FOUND',
+                message: 'PTY process not found',
+              })
+              return
+            }
+
+            const filePath = await saveClipboardImage(message)
+            ptyManager.write(message.terminalId, filePath)
             break
           }
 

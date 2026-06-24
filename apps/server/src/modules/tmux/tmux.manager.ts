@@ -111,6 +111,16 @@ export function createTmuxManager() {
     }
   }
 
+  const disableMouseMode = (terminalId: string): void => {
+    if (!isAvailable()) return
+
+    try {
+      execTmux(['set-option', '-t', sessionNameForTerminal(terminalId), 'mouse', 'off'])
+    } catch {
+      // Non-fatal: missing or unavailable sessions are handled by callers.
+    }
+  }
+
   const createSession = (input: CreateTmuxSessionInput): void => {
     if (!isAvailable()) {
       throw new Error('tmux is not available')
@@ -139,12 +149,9 @@ export function createTmuxManager() {
       if (input.initialCommand) {
         execTmux(['send-keys', '-t', sessionName, input.initialCommand, 'C-m'])
       }
-      // Enable mouse mode so scroll wheel works within tmux panes
-      try {
-        execTmux(['set-option', '-t', sessionName, 'mouse', 'on'])
-      } catch {
-        // Non-fatal: mouse scroll won't work but session is usable
-      }
+      // Keep tmux from owning browser mouse selection; scrolling uses
+      // scrollSession() below instead of tmux mouse reporting.
+      disableMouseMode(input.terminalId)
     } catch (error) {
       throw normalizeError(error)
     }
@@ -159,11 +166,15 @@ export function createTmuxManager() {
     }
   }
 
-  const getAttachSpawnSpec = (terminalId: string): SpawnSpec => ({
-    file: binarySpec.binary,
-    args: ['attach-session', '-t', sessionNameForTerminal(terminalId)],
-    env: binarySpec.env,
-  })
+  const getAttachSpawnSpec = (terminalId: string): SpawnSpec => {
+    disableMouseMode(terminalId)
+
+    return {
+      file: binarySpec.binary,
+      args: ['attach-session', '-t', sessionNameForTerminal(terminalId)],
+      env: binarySpec.env,
+    }
+  }
 
   const scrollSession = (terminalId: string, direction: 'up' | 'down', lines: number): void => {
     const sessionName = sessionNameForTerminal(terminalId)
@@ -185,6 +196,7 @@ export function createTmuxManager() {
     killSession,
     getAttachSpawnSpec,
     sessionNameForTerminal,
+    disableMouseMode,
     scrollSession,
   }
 }

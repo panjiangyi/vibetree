@@ -6,11 +6,16 @@ import { OutputReplayBuffer } from './output-replay-buffer.js'
 import type { PtyRuntimeSession, CreatePtyInput } from './pty.types.js'
 
 const OUTPUT_REPLAY_BUFFER_BYTES = 1024 * 1024
+const DEVICE_ATTRIBUTE_SEQUENCE_PATTERN = /\x1b(?:Z|\[(?:[?>]?[0-9;]*)?c)/g
 
 function sendWs(ws: WebSocket, data: unknown): void {
   if (ws.readyState === ws.OPEN) {
     ws.send(JSON.stringify(data))
   }
+}
+
+function stripDeviceAttributeSequences(data: string): string {
+  return data.replace(DEVICE_ATTRIBUTE_SEQUENCE_PATTERN, '')
 }
 
 export type PtyManager = ReturnType<typeof createPtyManager>
@@ -68,11 +73,10 @@ export function createPtyManager() {
             data,
           })
         }
-        // Strip device-attribute request/response sequences before buffering.
-        // They accumulate on every tab switch (xterm init triggers DA queries,
-        // PTY responds with e.g. \033[?1;2c / \033[>0;276;0c) and corrupt the
-        // replay for future sessions that never sent the originating query.
-        const replayData = data.replace(/\x1b\[[\?|>][\d;]*c/g, '')
+        // Strip device-attribute requests/responses before buffering. Replaying
+        // old DA queries makes xterm answer them again on every tab mount, and
+        // those stale answers can show up as literal "1;2c" in the shell.
+        const replayData = stripDeviceAttributeSequences(data)
         if (replayData) outputBuffer.push(replayData)
       })
 

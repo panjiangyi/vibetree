@@ -24,6 +24,12 @@ export type TerminalClientMessage =
     }
   | { type: 'ping' }
   | {
+      type: 'paste-image'
+      terminalId: string
+      mimeType: string
+      dataBase64: string
+    }
+  | {
       type: 'scroll'
       terminalId: string
       direction: 'up' | 'down'
