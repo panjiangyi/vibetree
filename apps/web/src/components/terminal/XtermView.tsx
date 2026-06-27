@@ -29,6 +29,7 @@ const RECENT_XTERM_DATA_WINDOW_MS = 120
 const RECENT_INPUT_TEXT_WINDOW_MS = 3000
 const MAX_RECENT_INPUT_TEXT_LENGTH = 300
 const MAX_OUTPUT_CHARS_PER_FRAME = 64 * 1024
+const TOUCH_TAP_MOVE_THRESHOLD_PX = 8
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -126,6 +127,118 @@ function getCharacterLength(value: string): number {
   return Array.from(value).length
 }
 
+function shouldUseNativeTouchScrollLayer(): boolean {
+  return window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window
+}
+
+function createNativeTouchScrollLayer(container: HTMLElement, term: Terminal) {
+  if (!shouldUseNativeTouchScrollLayer()) {
+    return {
+      refresh: () => undefined,
+      dispose: () => undefined,
+    }
+  }
+
+  const overlay = document.createElement('div')
+  const spacer = document.createElement('div')
+  let syncFrameId: number | null = null
+  let tapStart: { x: number; y: number } | null = null
+  let tapMoved = false
+
+  overlay.className = 'xterm-native-touch-scroll'
+  overlay.setAttribute('aria-hidden', 'true')
+  overlay.style.position = 'absolute'
+  overlay.style.inset = '0'
+  overlay.style.zIndex = '4'
+  overlay.style.overflowX = 'hidden'
+  overlay.style.overflowY = 'auto'
+  overlay.style.background = 'transparent'
+  overlay.style.touchAction = 'pan-y'
+  overlay.style.overscrollBehavior = 'contain'
+  ;(overlay.style as CSSStyleDeclaration & { WebkitOverflowScrolling?: string }).WebkitOverflowScrolling = 'touch'
+
+  spacer.style.width = '1px'
+  overlay.appendChild(spacer)
+  container.appendChild(overlay)
+
+  const getViewport = () => term.element?.querySelector('.xterm-viewport') as HTMLElement | null
+
+  const refresh = () => {
+    if (syncFrameId != null) return
+
+    syncFrameId = requestAnimationFrame(() => {
+      syncFrameId = null
+      const viewport = getViewport()
+      if (!viewport || term.buffer.active !== term.buffer.normal) {
+        overlay.style.display = 'none'
+        return
+      }
+
+      overlay.style.display = viewport.scrollHeight > viewport.clientHeight ? 'block' : 'none'
+      overlay.style.height = `${viewport.clientHeight}px`
+      spacer.style.height = `${viewport.scrollHeight}px`
+      if (Math.abs(overlay.scrollTop - viewport.scrollTop) > 1) {
+        overlay.scrollTop = viewport.scrollTop
+      }
+    })
+  }
+
+  const syncOverlayToViewport = () => {
+    const viewport = getViewport()
+    if (!viewport || term.buffer.active !== term.buffer.normal) return
+    if (Math.abs(viewport.scrollTop - overlay.scrollTop) > 0.5) {
+      viewport.scrollTop = overlay.scrollTop
+    }
+  }
+
+  const handleTouchStart = (event: TouchEvent) => {
+    const touch = event.touches[0]
+    tapStart = touch ? { x: touch.clientX, y: touch.clientY } : null
+    tapMoved = false
+  }
+
+  const handleTouchMove = (event: TouchEvent) => {
+    const touch = event.touches[0]
+    if (!touch || !tapStart) return
+    if (
+      Math.abs(touch.clientX - tapStart.x) > TOUCH_TAP_MOVE_THRESHOLD_PX ||
+      Math.abs(touch.clientY - tapStart.y) > TOUCH_TAP_MOVE_THRESHOLD_PX
+    ) {
+      tapMoved = true
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!tapMoved) {
+      term.focus()
+    }
+    tapStart = null
+    tapMoved = false
+  }
+
+  overlay.addEventListener('scroll', syncOverlayToViewport, { passive: true })
+  overlay.addEventListener('touchstart', handleTouchStart, { passive: true })
+  overlay.addEventListener('touchmove', handleTouchMove, { passive: true })
+  overlay.addEventListener('touchend', handleTouchEnd, { passive: true })
+  overlay.addEventListener('touchcancel', handleTouchEnd, { passive: true })
+  refresh()
+
+  return {
+    refresh,
+    dispose: () => {
+      if (syncFrameId != null) {
+        cancelAnimationFrame(syncFrameId)
+      }
+      overlay.removeEventListener('scroll', syncOverlayToViewport)
+      overlay.removeEventListener('touchstart', handleTouchStart)
+      overlay.removeEventListener('touchmove', handleTouchMove)
+      overlay.removeEventListener('touchend', handleTouchEnd)
+      overlay.removeEventListener('touchcancel', handleTouchEnd)
+      overlay.remove()
+    },
+  }
+}
+
 function countSuffixChunks(chunks: RecentInputTextChunk[], data: string): number {
   const recentText = chunks.map((chunk) => chunk.data).join('')
   if (!recentText.endsWith(data)) return 0
@@ -206,12 +319,15 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     term.loadAddon(fitAddon)
     term.loadAddon(webLinksAddon)
     term.open(containerRef.current)
+    const container = containerRef.current
+    const nativeTouchScrollLayer = createNativeTouchScrollLayer(container, term)
     const sendScroll = (up: boolean, lines: number) => {
       term.scrollLines(up ? -lines : lines)
       const buf = term.buffer.active
       atBottomRef.current = buf.baseY - buf.viewportY <= 1
+      nativeTouchScrollLayer.refresh()
     }
-    const container = containerRef.current
+
     let mouseSelectionStart: { x: number; y: number } | null = null
     let mouseSelectionMoved = false
     let cachedSelectionText = ''
@@ -291,6 +407,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     const scrollToBottom = () => {
       term.scrollToBottom()
       atBottomRef.current = true
+      nativeTouchScrollLayer.refresh()
     }
 
     const attachTerminal = () => {
@@ -324,6 +441,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
         if (shouldScroll) {
           requestAnimationFrame(scrollToBottom)
         }
+        nativeTouchScrollLayer.refresh()
       })
     }
 
@@ -861,12 +979,14 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     const scrollDisposable = term.onScroll(() => {
       const buffer = term.buffer.active
       atBottomRef.current = buffer.baseY - buffer.viewportY <= 1
+      nativeTouchScrollLayer.refresh()
     })
 
     const writeParsedDisposable = term.onWriteParsed(() => {
       if (atBottomRef.current) {
         requestAnimationFrame(scrollToBottom)
       }
+      nativeTouchScrollLayer.refresh()
     })
 
     const handleVisibilityChange = () => {
@@ -967,6 +1087,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       container.removeEventListener('mousemove', handleMouseMoveForCopy, true)
       container.removeEventListener('mouseup', handleMouseUpForCopy, true)
       document.removeEventListener('selectionchange', updateCachedSelectionText)
+      nativeTouchScrollLayer.dispose()
       resizeObserver.disconnect()
       scrollDisposable.dispose()
       writeParsedDisposable.dispose()
@@ -978,5 +1099,5 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     }
   }, [fontSize, onActionsChange, resolvedTheme, terminalId])
 
-  return <div ref={containerRef} className="h-full min-h-0 w-full overflow-hidden" />
+  return <div ref={containerRef} className="relative h-full min-h-0 w-full overflow-hidden" />
 }

@@ -253,4 +253,12 @@ body {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  .xterm-native-touch-scroll {
+    scrollbar-width: none;
+  }
+
+  .xterm-native-touch-scroll::-webkit-scrollbar {
+    display: none;
+  }
 }
