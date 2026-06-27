@@ -206,51 +206,10 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     term.loadAddon(fitAddon)
     term.loadAddon(webLinksAddon)
     term.open(containerRef.current)
-
-    // Mobile touch-scroll.
-    // tmux runs in the alternate screen, where xterm.js has no scrollback.
-    // Keep tmux mouse mode off so browser text selection works; scroll buttons
-    // and touch scrolling use a WebSocket command that drives tmux copy-mode.
     const sendScroll = (up: boolean, lines: number) => {
-      if (term.buffer.active !== term.buffer.normal) {
-        terminalSocket.send({ type: 'scroll', terminalId, direction: up ? 'up' : 'down', lines })
-      } else {
-        term.scrollLines(up ? -lines : lines)
-        const buf = term.buffer.active
-        atBottomRef.current = buf.baseY - buf.viewportY <= 1
-      }
-    }
-
-    let touchScrollY = 0
-    let touchEngaged = false
-    let touchAccumPx = 0
-    // iOS natural scrolling: finger DOWN = see older content (scroll up).
-    // delta = touchScrollY - currentY: finger down → delta < 0 → touchAccumPx < 0 → up=true ✓
-    const PX_PER_STEP = 10  // pixels of swipe per scroll dispatch
-    const LINES_PER_STEP = 3 // lines scrolled per dispatch
-
-    const onTouchStartScroll = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return
-      touchScrollY = e.touches[0]!.clientY
-      touchEngaged = false
-      touchAccumPx = 0
-    }
-    const onTouchMoveScroll = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return
-      const currentY = e.touches[0]!.clientY
-      const delta = touchScrollY - currentY
-      touchScrollY = currentY
-      if (!touchEngaged && Math.abs(delta) < 4) return
-      touchEngaged = true
-
-      touchAccumPx += delta
-      const steps = Math.floor(Math.abs(touchAccumPx) / PX_PER_STEP)
-      if (steps > 0) {
-        sendScroll(touchAccumPx < 0, steps * LINES_PER_STEP)
-        touchAccumPx -= steps * PX_PER_STEP * Math.sign(touchAccumPx)
-      }
-
-      e.preventDefault()
+      term.scrollLines(up ? -lines : lines)
+      const buf = term.buffer.active
+      atBottomRef.current = buf.baseY - buf.viewportY <= 1
     }
     const container = containerRef.current
     let mouseSelectionStart: { x: number; y: number } | null = null
@@ -328,8 +287,6 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     container.addEventListener('mousemove', handleMouseMoveForCopy, true)
     container.addEventListener('mouseup', handleMouseUpForCopy, true)
     document.addEventListener('selectionchange', updateCachedSelectionText)
-    container.addEventListener('touchstart', onTouchStartScroll, { passive: true })
-    container.addEventListener('touchmove', onTouchMoveScroll, { passive: false })
 
     const scrollToBottom = () => {
       term.scrollToBottom()
@@ -1010,8 +967,6 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       container.removeEventListener('mousemove', handleMouseMoveForCopy, true)
       container.removeEventListener('mouseup', handleMouseUpForCopy, true)
       document.removeEventListener('selectionchange', updateCachedSelectionText)
-      container.removeEventListener('touchstart', onTouchStartScroll)
-      container.removeEventListener('touchmove', onTouchMoveScroll)
       resizeObserver.disconnect()
       scrollDisposable.dispose()
       writeParsedDisposable.dispose()

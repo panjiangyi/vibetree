@@ -29,12 +29,6 @@ export type TerminalClientMessage =
       mimeType: string
       dataBase64: string
     }
-  | {
-      type: 'scroll'
-      terminalId: string
-      direction: 'up' | 'down'
-      lines: number
-    }
 
 export type TerminalServerMessage =
   | {

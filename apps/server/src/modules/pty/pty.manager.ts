@@ -5,7 +5,7 @@ import { buildShellLaunchConfig } from './compact-prompt.js'
 import { OutputReplayBuffer } from './output-replay-buffer.js'
 import type { PtyRuntimeSession, CreatePtyInput } from './pty.types.js'
 
-const OUTPUT_REPLAY_BUFFER_BYTES = 1024 * 1024
+const OUTPUT_REPLAY_BUFFER_BYTES = 16 * 1024 * 1024
 const DEVICE_ATTRIBUTE_SEQUENCE_PATTERN = /\x1b(?:Z|\[(?:[?>]?[0-9;]*)?c)/g
 
 function sendWs(ws: WebSocket, data: unknown): void {

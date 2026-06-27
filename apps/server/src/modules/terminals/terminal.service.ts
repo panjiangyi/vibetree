@@ -24,7 +24,6 @@ import type { createWorktreeRepository } from '../../db/repositories/worktree.re
 import type { createTerminalRepository } from '../../db/repositories/terminal.repository.js'
 import type { AppConfig } from '../../config.js'
 import type { PtyManager } from '../pty/pty.manager.js'
-import type { TmuxManager } from '../tmux/tmux.manager.js'
 import { normalizePath } from '../security/path-safety.js'
 
 type ProjectRepo = ReturnType<typeof createProjectRepository>
@@ -108,30 +107,14 @@ export function createTerminalService(
   worktreeRepo: WorktreeRepo,
   terminalRepo: TerminalRepo,
   ptyManager: PtyManager,
-  tmuxManager: TmuxManager,
   config: AppConfig
 ) {
   const terminalIdsBeingDeleted = new Set<string>()
-
-  const isPersistentWorktreeTerminal = (session: TerminalSession): boolean => {
-    return session.scopeType === 'worktree' && tmuxManager.isAvailable()
-  }
-
   const attachExitHandler = (session: TerminalSession) => {
     ptyManager.onExit(session.id, (exitCode) => {
       if (terminalIdsBeingDeleted.has(session.id)) {
         return
       }
-
-      if (isPersistentWorktreeTerminal(session) && tmuxManager.hasSession(session.id)) {
-        terminalRepo.updatePid(session.id, null)
-        const updated = terminalRepo.findById(session.id)
-        if (updated) {
-          self.onBroadcast?.({ type: 'terminal-updated', terminal: updated })
-        }
-        return
-      }
-
       if (session.scopeType === 'directory') {
         const { id, scopeId, scopeType } = session
         terminalRepo.delete(id)
@@ -170,42 +153,27 @@ export function createTerminalService(
   }
 
   const createRuntime = (session: TerminalSession): TerminalSession => {
-    let runtime
-
-    if (isPersistentWorktreeTerminal(session)) {
-      const attachSpec = tmuxManager.getAttachSpawnSpec(session.id)
-      runtime = ptyManager.create({
-        terminalId: session.id,
-        launch: 'command',
-        ...attachSpec,
+    let env: Record<string, string>
+    if (session.scopeType === 'directory') {
+      env = buildDirectoryEnv({
         cwd: session.cwd,
-        cols: session.cols,
-        rows: session.rows,
-        env: attachSpec.env ?? {},
+        scopeId: session.scopeId,
+        scopeLabel: session.scopeLabel,
       })
     } else {
-      let env: Record<string, string>
-      if (session.scopeType === 'directory') {
-        env = buildDirectoryEnv({
-          cwd: session.cwd,
-          scopeId: session.scopeId,
-          scopeLabel: session.scopeLabel,
-        })
-      } else {
-        const { project, worktree } = loadWorktreeContext(session)
-        env = buildWorktreeEnv(project, worktree)
-      }
-
-      runtime = ptyManager.create({
-        terminalId: session.id,
-        launch: 'shell',
-        shell: session.shell,
-        cwd: session.cwd,
-        cols: session.cols,
-        rows: session.rows,
-        env,
-      })
+      const { project, worktree } = loadWorktreeContext(session)
+      env = buildWorktreeEnv(project, worktree)
     }
+
+    const runtime = ptyManager.create({
+      terminalId: session.id,
+      launch: 'shell',
+      shell: session.shell,
+      cwd: session.cwd,
+      cols: session.cols,
+      rows: session.rows,
+      env,
+    })
 
     terminalRepo.updatePidAndStatus(session.id, runtime.pty.pid, 'running')
     attachExitHandler(session)
@@ -215,21 +183,9 @@ export function createTerminalService(
   const createStoredSession = (session: TerminalSession, options?: { initialCommand?: string }) => {
     terminalRepo.insert(session)
 
-    if (isPersistentWorktreeTerminal(session)) {
-      const { project, worktree } = loadWorktreeContext(session)
-      tmuxManager.createSession({
-        terminalId: session.id,
-        cwd: worktree.path,
-        shell: session.shell,
-        env: buildWorktreeEnv(project, worktree),
-        initialCommand: options?.initialCommand,
-      })
-      return createRuntime(session)
-    }
-
     const created = createRuntime(session)
     if (options?.initialCommand) {
-      ptyManager.write(created.id, `${options.initialCommand}\n`)
+      ptyManager.write(created.id, options.initialCommand + '\n')
     }
     return created
   }
@@ -243,14 +199,6 @@ export function createTerminalService(
         if (terminal.status !== 'running' || ptyManager.has(terminal.id)) {
           continue
         }
-
-        if (isPersistentWorktreeTerminal(terminal) && tmuxManager.hasSession(terminal.id)) {
-          if (terminal.pid !== null) {
-            terminalRepo.updatePid(terminal.id, null)
-          }
-          continue
-        }
-
         if (terminal.scopeType === 'directory') {
           terminalRepo.delete(terminal.id)
         } else {
@@ -380,9 +328,6 @@ export function createTerminalService(
       }
 
       const created = createStoredSession(session, { initialCommand: input.initialCommand })
-      if (input.initialCommand) {
-        ptyManager.write(created.id, `${input.initialCommand}\n`)
-      }
       self.onBroadcast?.({ type: 'terminal-created', terminal: created })
       return created
     },
@@ -415,10 +360,6 @@ export function createTerminalService(
         if (terminal.status === 'running') {
           ptyManager.kill(id)
         }
-
-        if (isPersistentWorktreeTerminal(terminal)) {
-          tmuxManager.killSession(id)
-        }
       } finally {
         terminalIdsBeingDeleted.delete(id)
       }
@@ -447,17 +388,6 @@ export function createTerminalService(
       if (!terminal.worktreeId) {
         throw new AppError(WORKTREE_NOT_FOUND, 'Worktree not found')
       }
-      const { project, worktree } = loadWorktreeContext(terminal)
-
-      if (isPersistentWorktreeTerminal(terminal) && !tmuxManager.hasSession(id)) {
-        tmuxManager.createSession({
-          terminalId: id,
-          cwd: worktree.path,
-          shell: terminal.shell,
-          env: buildWorktreeEnv(project, worktree),
-        })
-      }
-
       const updated = createRuntime(terminal)
       self.onBroadcast?.({ type: 'terminal-updated', terminal: updated })
       return updated
@@ -473,11 +403,6 @@ export function createTerminalService(
         self.reconcileTerminalStatuses()
         throw new AppError('PTY_NOT_FOUND', 'PTY process not found')
       }
-
-      if (isPersistentWorktreeTerminal(terminal) && tmuxManager.hasSession(id)) {
-        return createRuntime(terminal)
-      }
-
       self.reconcileTerminalStatuses()
       throw new AppError('PTY_NOT_FOUND', 'PTY process not found')
     },

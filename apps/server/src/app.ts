@@ -13,7 +13,6 @@ import { createWorktreeService } from './modules/worktrees/worktree.service.js'
 import { createTerminalService } from './modules/terminals/terminal.service.js'
 import { createAuthService } from './modules/auth/auth.service.js'
 import { createPtyManager } from './modules/pty/pty.manager.js'
-import { createTmuxManager } from './modules/tmux/tmux.manager.js'
 import { createFsService } from './modules/fs/fs.service.js'
 import { registerAuthRoutes } from './routes/auth.routes.js'
 import { registerHealthRoutes } from './routes/health.routes.js'
@@ -42,7 +41,6 @@ export async function buildApp(config: AppConfig) {
 
   // Initialize PTY manager
   const ptyManager = createPtyManager()
-  const tmuxManager = createTmuxManager()
 
   // Initialize services
   const terminalService = createTerminalService(
@@ -50,7 +48,6 @@ export async function buildApp(config: AppConfig) {
     worktreeRepo,
     terminalRepo,
     ptyManager,
-    tmuxManager,
     config
   )
   const worktreeService = createWorktreeService(projectRepo, worktreeRepo, terminalRepo, terminalService)
@@ -63,7 +60,7 @@ export async function buildApp(config: AppConfig) {
   const fsService = createFsService()
   const authService = createAuthService(config)
 
-  // Directory terminals are ephemeral; worktree terminals can be recovered.
+  // Directory terminals are ephemeral; worktree terminals are in-process PTY sessions.
   terminalRepo.deleteDirectorySessions()
 
   // Register plugins
@@ -135,7 +132,7 @@ export async function buildApp(config: AppConfig) {
   await registerTerminalRoutes(app, terminalService)
   await registerFsRoutes(app, fsService)
   await registerDebugRoutes(app)
-  registerTerminalWebSocket(app, terminalService, ptyManager, authService, tmuxManager)
+  registerTerminalWebSocket(app, terminalService, ptyManager, authService)
 
   // Serve static files in production
   const webDistPath = path.resolve(import.meta.dirname, '../../web/dist')

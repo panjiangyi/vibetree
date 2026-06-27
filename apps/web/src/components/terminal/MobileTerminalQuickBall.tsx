@@ -6,7 +6,6 @@ import type { DraggableData, DraggableEvent } from 'react-draggable'
 import {
   ChevronDown,
   ChevronUp,
-  ChevronsUpDown,
   Clipboard,
   Copy,
   Eraser,
@@ -313,14 +312,6 @@ export default function MobileTerminalQuickBall({
         displayLabel: '复制',
         icon: <Copy className="w-4 h-4" />,
         onClick: handleCopy,
-      },
-      {
-        // Sends tmux prefix (Ctrl+B) + "[" to enter copy/scroll mode.
-        // Once in scroll mode: use 上一条/下一条 (↑↓) to scroll, Esc to exit.
-        label: '滚动模式',
-        displayLabel: '滚动',
-        icon: <ChevronsUpDown className="w-4 h-4" />,
-        onClick: () => sendInput('\x02['),
       },
     ],
     [handleCopy, sendInput]
