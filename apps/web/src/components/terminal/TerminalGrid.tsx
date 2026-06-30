@@ -42,10 +42,13 @@ function DesktopTerminalGrid() {
     observerRef.current = observer
   }, [])
 
-  const layout = useMemo(() => {
-    if (!activeScopeId) return []
-    return layoutsByScopeId[activeScopeId] ?? []
-  }, [activeScopeId, layoutsByScopeId])
+  // Render every open scope's grid and keep them all mounted, toggling
+  // visibility with CSS. Unmounting a scope's terminals on tab switch would
+  // force a re-attach and a full scrollback replay when switching back.
+  const scopeIds = useMemo(
+    () => Object.keys(layoutsByScopeId).filter((id) => (layoutsByScopeId[id]?.length ?? 0) > 0),
+    [layoutsByScopeId]
+  )
 
   const rowHeight = useMemo(() => {
     if (size.height <= 0) return 30
@@ -54,12 +57,12 @@ function DesktopTerminalGrid() {
   }, [size.height])
 
   const handleLayoutChange = useCallback(
-    (newLayout: readonly LayoutItem[]) => {
-      if (activeScopeId && newLayout.length > 0) {
-        setLayoutForScope(activeScopeId, [...newLayout])
+    (scopeId: string, newLayout: readonly LayoutItem[]) => {
+      if (newLayout.length > 0) {
+        setLayoutForScope(scopeId, [...newLayout])
       }
     },
-    [activeScopeId, setLayoutForScope]
+    [setLayoutForScope]
   )
 
   const handleClose = useCallback(
@@ -71,7 +74,7 @@ function DesktopTerminalGrid() {
     [closeTerminal]
   )
 
-  if (!activeScopeId || layout.length === 0) {
+  if (scopeIds.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center app-subtle">
         <div className="text-center">
@@ -83,51 +86,64 @@ function DesktopTerminalGrid() {
   }
 
   return (
-    <div ref={measureRef} className="flex-1 min-h-0 overflow-hidden">
-      {size.width > 0 && size.height > 0 && (
-        <ReactGridLayout
-          layout={layout}
-          width={size.width}
-          cols={GRID_COLS}
-          maxRows={GRID_ROWS}
-          rowHeight={rowHeight}
-          margin={[MARGIN, MARGIN]}
-          containerPadding={[MARGIN, MARGIN]}
-          autoSize={false}
-          style={{ height: size.height }}
-          onLayoutChange={handleLayoutChange}
-          draggableHandle=".drag-handle"
-          resizeHandles={['se']}
-          compactType="vertical"
-          preventCollision={false}
-          isBounded
-        >
-          {layout.map((item) => (
+    <div ref={measureRef} className="relative flex-1 min-h-0 overflow-hidden">
+      {size.width > 0 &&
+        size.height > 0 &&
+        scopeIds.map((scopeId) => {
+          const scopeLayout = layoutsByScopeId[scopeId] ?? []
+          const isActive = scopeId === activeScopeId
+          return (
             <div
-              key={item.i}
-              className="app-panel border rounded overflow-hidden flex flex-col"
+              key={scopeId}
+              className="absolute inset-0"
+              style={{ display: isActive ? 'block' : 'none' }}
+              aria-hidden={!isActive}
             >
-              <div className="drag-handle flex items-center justify-between px-2 py-1 app-panel-strong border-b cursor-move select-none">
-                <span className="text-xs app-muted truncate">
-                  {terminalIdToTitle[item.i] || item.i}
-                </span>
-                <span
-                  role="button"
-                  onClick={(e) => handleClose(item.i, e)}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  className="p-0.5 rounded cursor-pointer app-hover"
-                  title="Close terminal"
-                >
-                  <X className="w-3 h-3 app-danger" />
-                </span>
-              </div>
-              <div className="flex flex-col flex-1 min-h-0">
-                <TerminalPane terminalId={item.i} />
-              </div>
+              <ReactGridLayout
+                layout={scopeLayout}
+                width={size.width}
+                cols={GRID_COLS}
+                maxRows={GRID_ROWS}
+                rowHeight={rowHeight}
+                margin={[MARGIN, MARGIN]}
+                containerPadding={[MARGIN, MARGIN]}
+                autoSize={false}
+                style={{ height: size.height }}
+                onLayoutChange={(newLayout) => handleLayoutChange(scopeId, newLayout)}
+                draggableHandle=".drag-handle"
+                resizeHandles={['se']}
+                compactType="vertical"
+                preventCollision={false}
+                isBounded
+              >
+                {scopeLayout.map((item) => (
+                  <div
+                    key={item.i}
+                    className="app-panel border rounded overflow-hidden flex flex-col"
+                  >
+                    <div className="drag-handle flex items-center justify-between px-2 py-1 app-panel-strong border-b cursor-move select-none">
+                      <span className="text-xs app-muted truncate">
+                        {terminalIdToTitle[item.i] || item.i}
+                      </span>
+                      <span
+                        role="button"
+                        onClick={(e) => handleClose(item.i, e)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="p-0.5 rounded cursor-pointer app-hover"
+                        title="Close terminal"
+                      >
+                        <X className="w-3 h-3 app-danger" />
+                      </span>
+                    </div>
+                    <div className="flex flex-col flex-1 min-h-0">
+                      <TerminalPane terminalId={item.i} />
+                    </div>
+                  </div>
+                ))}
+              </ReactGridLayout>
             </div>
-          ))}
-        </ReactGridLayout>
-      )}
+          )
+        })}
     </div>
   )
 }
