@@ -30,6 +30,7 @@ const RECENT_INPUT_TEXT_WINDOW_MS = 3000
 const MAX_RECENT_INPUT_TEXT_LENGTH = 300
 const MAX_OUTPUT_CHARS_PER_FRAME = 64 * 1024
 const TOUCH_TAP_MOVE_THRESHOLD_PX = 8
+const USER_SCROLL_IDLE_MS = 150
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -144,6 +145,27 @@ function createNativeTouchScrollLayer(container: HTMLElement, term: Terminal) {
   let syncFrameId: number | null = null
   let tapStart: { x: number; y: number } | null = null
   let tapMoved = false
+  let touchActive = false
+  let lastUserScrollAt = 0
+  let programmaticScrollTop: number | null = null
+  let idleRefreshTimeout: ReturnType<typeof setTimeout> | null = null
+
+  // Writing scrollTop on a scrolling element cancels the browser's momentum
+  // fling, so viewport→overlay sync must never run while the user's gesture
+  // (touch or its inertia tail) owns the overlay.
+  const isUserScrolling = () =>
+    touchActive || performance.now() - lastUserScrollAt < USER_SCROLL_IDLE_MS
+
+  // Programmatic viewport moves that land mid-gesture are skipped by refresh,
+  // and nothing fires once the gesture goes quiet — reconcile on a trailing
+  // timer instead.
+  const scheduleIdleRefresh = () => {
+    if (idleRefreshTimeout != null) clearTimeout(idleRefreshTimeout)
+    idleRefreshTimeout = setTimeout(() => {
+      idleRefreshTimeout = null
+      refresh()
+    }, USER_SCROLL_IDLE_MS + 50)
+  }
 
   overlay.className = 'xterm-native-touch-scroll'
   overlay.setAttribute('aria-hidden', 'true')
@@ -177,13 +199,22 @@ function createNativeTouchScrollLayer(container: HTMLElement, term: Terminal) {
       overlay.style.display = viewport.scrollHeight > viewport.clientHeight ? 'block' : 'none'
       overlay.style.height = `${viewport.clientHeight}px`
       spacer.style.height = `${viewport.scrollHeight}px`
-      if (Math.abs(overlay.scrollTop - viewport.scrollTop) > 1) {
+      if (!isUserScrolling() && Math.abs(overlay.scrollTop - viewport.scrollTop) > 1) {
+        programmaticScrollTop = viewport.scrollTop
         overlay.scrollTop = viewport.scrollTop
       }
     })
   }
 
-  const syncOverlayToViewport = () => {
+  const handleOverlayScroll = () => {
+    if (programmaticScrollTop != null && Math.abs(overlay.scrollTop - programmaticScrollTop) <= 1) {
+      programmaticScrollTop = null
+      return
+    }
+    programmaticScrollTop = null
+    lastUserScrollAt = performance.now()
+    scheduleIdleRefresh()
+
     const viewport = getViewport()
     if (!viewport || term.buffer.active !== term.buffer.normal) return
     if (Math.abs(viewport.scrollTop - overlay.scrollTop) > 0.5) {
@@ -195,6 +226,7 @@ function createNativeTouchScrollLayer(container: HTMLElement, term: Terminal) {
     const touch = event.touches[0]
     tapStart = touch ? { x: touch.clientX, y: touch.clientY } : null
     tapMoved = false
+    touchActive = true
   }
 
   const handleTouchMove = (event: TouchEvent) => {
@@ -214,9 +246,12 @@ function createNativeTouchScrollLayer(container: HTMLElement, term: Terminal) {
     }
     tapStart = null
     tapMoved = false
+    touchActive = false
+    lastUserScrollAt = performance.now()
+    scheduleIdleRefresh()
   }
 
-  overlay.addEventListener('scroll', syncOverlayToViewport, { passive: true })
+  overlay.addEventListener('scroll', handleOverlayScroll, { passive: true })
   overlay.addEventListener('touchstart', handleTouchStart, { passive: true })
   overlay.addEventListener('touchmove', handleTouchMove, { passive: true })
   overlay.addEventListener('touchend', handleTouchEnd, { passive: true })
@@ -229,7 +264,10 @@ function createNativeTouchScrollLayer(container: HTMLElement, term: Terminal) {
       if (syncFrameId != null) {
         cancelAnimationFrame(syncFrameId)
       }
-      overlay.removeEventListener('scroll', syncOverlayToViewport)
+      if (idleRefreshTimeout != null) {
+        clearTimeout(idleRefreshTimeout)
+      }
+      overlay.removeEventListener('scroll', handleOverlayScroll)
       overlay.removeEventListener('touchstart', handleTouchStart)
       overlay.removeEventListener('touchmove', handleTouchMove)
       overlay.removeEventListener('touchend', handleTouchEnd)
@@ -324,7 +362,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     const sendScroll = (up: boolean, lines: number) => {
       term.scrollLines(up ? -lines : lines)
       const buf = term.buffer.active
-      atBottomRef.current = buf.baseY - buf.viewportY <= 1
+      atBottomRef.current = buf.viewportY >= buf.baseY
       nativeTouchScrollLayer.refresh()
     }
 
@@ -978,14 +1016,15 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
 
     const scrollDisposable = term.onScroll(() => {
       const buffer = term.buffer.active
-      atBottomRef.current = buffer.baseY - buffer.viewportY <= 1
+      atBottomRef.current = buffer.viewportY >= buffer.baseY
       nativeTouchScrollLayer.refresh()
     })
 
+    // xterm already keeps the viewport pinned while it is at the bottom and
+    // holds position when scrolled up. Forcing scrollToBottom here raced with
+    // user scrolls during streaming output and yanked the viewport back down,
+    // so only keep the touch-scroll layer's size in sync.
     const writeParsedDisposable = term.onWriteParsed(() => {
-      if (atBottomRef.current) {
-        requestAnimationFrame(scrollToBottom)
-      }
       nativeTouchScrollLayer.refresh()
     })
 
@@ -1028,8 +1067,24 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
 
     // Handle messages
     const unsubscribe = terminalSocket.onMessage((message) => {
-      if (message.type !== 'output' && message.type !== 'exit' && message.type !== 'error') return
+      if (
+        message.type !== 'attached' &&
+        message.type !== 'output' &&
+        message.type !== 'exit' &&
+        message.type !== 'error'
+      ) {
+        return
+      }
       if (message.terminalId !== terminalId) return
+
+      if (message.type === 'attached') {
+        // The server replays its full output buffer after every attach. Reset
+        // in-band through the write queue so a reconnect replay replaces the
+        // existing content instead of appending a duplicate copy.
+        pendingOutput = ''
+        enqueueOutput('\x1bc')
+        return
+      }
 
       if (message.type === 'output') {
         enqueueOutput(message.data)
