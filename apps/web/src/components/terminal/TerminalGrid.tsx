@@ -1,16 +1,48 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { ReactGridLayout } from 'react-grid-layout/legacy'
 import type { LayoutItem } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
-import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CornerDownLeft, X } from 'lucide-react'
 import { GRID_COLS, GRID_ROWS, useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
+import { terminalSocket } from '../../ws/terminal-socket.js'
 import { TerminalPane } from './TerminalPane.js'
 import type { TerminalViewActions } from './XtermView.js'
 
 const MARGIN = 8
+const KEYBOARD_KEYS_MARGIN_PX = 8
 const MobileTerminalQuickBall = lazy(() => import('./MobileTerminalQuickBall.js'))
+
+// position: fixed anchors to the layout viewport, which iOS/Android don't
+// shrink when the virtual keyboard opens — only visualViewport does. Track it
+// so fixed overlays can be pushed up above the keyboard instead of ending up
+// hidden underneath it.
+function useKeyboardBottomInset(): number {
+  const [inset, setInset] = useState(0)
+
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+
+    const update = () => {
+      const covered = window.innerHeight - (viewport.offsetTop + viewport.height)
+      setInset(Math.max(0, Math.round(covered)))
+    }
+
+    update()
+    viewport.addEventListener('resize', update)
+    viewport.addEventListener('scroll', update)
+    return () => {
+      viewport.removeEventListener('resize', update)
+      viewport.removeEventListener('scroll', update)
+    }
+  }, [])
+
+  return inset
+}
 
 export function TerminalGrid() {
   const isMobile = useMediaQuery('(max-width: 767px)')
@@ -185,6 +217,18 @@ function MobileTerminalFocus() {
     setTerminalActions(null)
   }, [activeTerminalId])
 
+  const sendKey = useCallback(
+    (data: string) => {
+      if (!activeTerminalId) return
+      terminalSocket.input({ terminalId: activeTerminalId, data })
+      terminalActions?.focus()
+    },
+    [activeTerminalId, terminalActions]
+  )
+
+  const keyboardBottomInset = useKeyboardBottomInset()
+  const keyPadBottom = keyboardBottomInset + KEYBOARD_KEYS_MARGIN_PX
+
   if (!activeScopeId || layout.length === 0 || !activeTerminalId) {
     return (
       <div className="flex-1 flex items-center justify-center app-subtle px-6">
@@ -204,25 +248,44 @@ function MobileTerminalFocus() {
           fontSize={12}
           onActionsChange={setTerminalActions}
         />
-
-        {/* Floating scroll buttons — overlaid on the terminal, left side */}
-        <div className="absolute left-2 bottom-2 flex flex-col gap-1 z-10 pointer-events-none">
-          <button
-            onPointerDown={(e) => { e.preventDefault(); terminalActions?.scrollLines(-10) }}
-            className="pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full shadow-lg border opacity-60 active:opacity-100 app-panel-strong"
-            aria-label="Scroll up"
-          >
-            <ChevronUp className="w-4 h-4" />
-          </button>
-          <button
-            onPointerDown={(e) => { e.preventDefault(); terminalActions?.scrollLines(10) }}
-            className="pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full shadow-lg border opacity-60 active:opacity-100 app-panel-strong"
-            aria-label="Scroll down"
-          >
-            <ChevronDown className="w-4 h-4" />
-          </button>
-        </div>
       </div>
+
+      {createPortal(
+        <>
+          {/* Floating arrow-key pad — fixed to the page, tracks the visual
+              viewport so it rides up above the virtual keyboard. */}
+          <div
+            className="fixed left-2 z-30 grid grid-cols-3 grid-rows-3 gap-1 pointer-events-none"
+            style={{ bottom: keyPadBottom }}
+          >
+            <div />
+            <FloatingKeyButton label="Up arrow" onPress={() => sendKey('\x1b[A')}>
+              <ArrowUp className="w-4 h-4" />
+            </FloatingKeyButton>
+            <div />
+            <FloatingKeyButton label="Left arrow" onPress={() => sendKey('\x1b[D')}>
+              <ArrowLeft className="w-4 h-4" />
+            </FloatingKeyButton>
+            <div />
+            <FloatingKeyButton label="Right arrow" onPress={() => sendKey('\x1b[C')}>
+              <ArrowRight className="w-4 h-4" />
+            </FloatingKeyButton>
+            <div />
+            <FloatingKeyButton label="Down arrow" onPress={() => sendKey('\x1b[B')}>
+              <ArrowDown className="w-4 h-4" />
+            </FloatingKeyButton>
+            <div />
+          </div>
+
+          {/* Floating Enter key — fixed to the page, right side */}
+          <div className="fixed right-2 z-30 pointer-events-none" style={{ bottom: keyPadBottom }}>
+            <FloatingKeyButton label="Enter" onPress={() => sendKey('\r')}>
+              <CornerDownLeft className="w-4 h-4" />
+            </FloatingKeyButton>
+          </div>
+        </>,
+        document.body
+      )}
 
       <Suspense fallback={null}>
         <MobileTerminalQuickBall
@@ -231,5 +294,30 @@ function MobileTerminalFocus() {
         />
       </Suspense>
     </div>
+  )
+}
+
+function FloatingKeyButton({
+  label,
+  onPress,
+  children,
+}: {
+  label: string
+  onPress: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onPointerDown={(e) => {
+        e.preventDefault()
+        onPress()
+      }}
+      className="pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full shadow-lg border opacity-60 active:opacity-100 app-panel-strong"
+    >
+      {children}
+    </button>
   )
 }
