@@ -353,8 +353,14 @@ function MobileTerminalFocus() {
             <div />
           </div>
 
-          {/* Floating Enter key — fixed to the page, right side */}
-          <div className="fixed right-2 z-30 pointer-events-none" style={{ bottom: keyPadBottom }}>
+          {/* Floating interrupt (Ctrl+C) + Enter keys — fixed to the page, right side */}
+          <div
+            className="fixed right-2 z-30 flex flex-col gap-1 pointer-events-none"
+            style={{ bottom: keyPadBottom }}
+          >
+            <FloatingKeyButton label="Interrupt (Ctrl+C)" onPress={() => sendKey('\x03')}>
+              <span className="text-xs font-mono font-semibold">^C</span>
+            </FloatingKeyButton>
             <FloatingKeyButton label="Enter" onPress={() => sendKey('\r')}>
               <CornerDownLeft className="w-4 h-4" />
             </FloatingKeyButton>
