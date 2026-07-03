@@ -240,8 +240,16 @@ function createNativeTouchScrollLayer(container: HTMLElement, term: Terminal) {
     }
   }
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (event: TouchEvent) => {
     if (!tapMoved) {
+      // Suppress the browser's synthetic mouse events for this tap. They fire
+      // ~300ms later on whatever sits at the same coordinates (this overlay,
+      // or — after the keyboard resize shifts layout — some other element),
+      // and a mousedown on a non-focusable element blurs the xterm textarea,
+      // which instantly dismisses the virtual keyboard we just opened.
+      if (event.cancelable) {
+        event.preventDefault()
+      }
       term.focus()
     }
     tapStart = null
@@ -251,11 +259,18 @@ function createNativeTouchScrollLayer(container: HTMLElement, term: Terminal) {
     scheduleIdleRefresh()
   }
 
+  // Backstop for any mousedown that still reaches the overlay (stray synthetic
+  // events, touch-capable laptops): keep it from stealing focus.
+  const handleMouseDown = (event: MouseEvent) => {
+    event.preventDefault()
+  }
+
   overlay.addEventListener('scroll', handleOverlayScroll, { passive: true })
   overlay.addEventListener('touchstart', handleTouchStart, { passive: true })
   overlay.addEventListener('touchmove', handleTouchMove, { passive: true })
-  overlay.addEventListener('touchend', handleTouchEnd, { passive: true })
-  overlay.addEventListener('touchcancel', handleTouchEnd, { passive: true })
+  overlay.addEventListener('touchend', handleTouchEnd)
+  overlay.addEventListener('touchcancel', handleTouchEnd)
+  overlay.addEventListener('mousedown', handleMouseDown)
   refresh()
 
   return {
@@ -272,6 +287,7 @@ function createNativeTouchScrollLayer(container: HTMLElement, term: Terminal) {
       overlay.removeEventListener('touchmove', handleTouchMove)
       overlay.removeEventListener('touchend', handleTouchEnd)
       overlay.removeEventListener('touchcancel', handleTouchEnd)
+      overlay.removeEventListener('mousedown', handleMouseDown)
       overlay.remove()
     },
   }

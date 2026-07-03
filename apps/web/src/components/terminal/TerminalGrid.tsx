@@ -1,10 +1,10 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ReactGridLayout } from 'react-grid-layout/legacy'
 import type { LayoutItem } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CornerDownLeft, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CornerDownLeft, Plus, X } from 'lucide-react'
 import { GRID_COLS, GRID_ROWS, useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
@@ -14,8 +14,6 @@ import type { TerminalViewActions } from './XtermView.js'
 
 const MARGIN = 8
 const KEYBOARD_KEYS_MARGIN_PX = 8
-const MobileTerminalQuickBall = lazy(() => import('./MobileTerminalQuickBall.js'))
-
 // position: fixed anchors to the layout viewport, which iOS/Android don't
 // shrink when the virtual keyboard opens — only visualViewport does. Track it
 // so fixed overlays can be pushed up above the keyboard instead of ending up
@@ -183,6 +181,9 @@ function DesktopTerminalGrid() {
 function MobileTerminalFocus() {
   const activeScopeId = useLayoutStore((s) => s.activeScopeId)
   const layoutsByScopeId = useLayoutStore((s) => s.layoutsByScopeId)
+  const terminalIdToTitle = useLayoutStore((s) => s.terminalIdToTitle)
+  const createNewTerminalForScope = useTerminalStore((s) => s.createNewTerminalForScope)
+  const closeTerminal = useTerminalStore((s) => s.closeTerminal)
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
   const [terminalActions, setTerminalActions] = useState<TerminalViewActions | null>(null)
   const previousLayoutLengthRef = useRef(0)
@@ -229,6 +230,24 @@ function MobileTerminalFocus() {
   const keyboardBottomInset = useKeyboardBottomInset()
   const keyPadBottom = keyboardBottomInset + KEYBOARD_KEYS_MARGIN_PX
 
+  const handleCloseTerminal = useCallback(
+    (terminalId: string) => {
+      if (terminalId === activeTerminalId) {
+        const currentIndex = layout.findIndex((item) => item.i === terminalId)
+        const fallbackId =
+          layout[currentIndex + 1]?.i ?? layout[currentIndex - 1]?.i ?? null
+        setActiveTerminalId(fallbackId)
+      }
+      void closeTerminal(terminalId)
+    },
+    [activeTerminalId, closeTerminal, layout]
+  )
+
+  const handleCreateTerminal = useCallback(() => {
+    if (!activeScopeId) return
+    void createNewTerminalForScope(activeScopeId)
+  }, [activeScopeId, createNewTerminalForScope])
+
   if (!activeScopeId || layout.length === 0 || !activeTerminalId) {
     return (
       <div className="flex-1 flex items-center justify-center app-subtle px-6">
@@ -242,12 +261,69 @@ function MobileTerminalFocus() {
 
   return (
     <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden">
+      <div className="flex items-center gap-1 border-b app-panel-strong overflow-x-auto px-1 py-1">
+        {layout.map((item, index) => {
+          const isActive = item.i === activeTerminalId
+          return (
+            <div
+              key={item.i}
+              className={`
+                flex h-8 min-w-[7rem] max-w-[11rem] shrink-0 items-center gap-1 rounded border px-2 text-xs
+                ${isActive ? 'app-panel' : 'app-panel-strong app-muted'}
+              `}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTerminalId(item.i)
+                  terminalActions?.focus()
+                }}
+                className="min-w-0 flex-1 truncate text-left"
+                title={terminalIdToTitle[item.i] || item.i}
+              >
+                {terminalIdToTitle[item.i] || `Terminal ${index + 1}`}
+              </button>
+              <button
+                type="button"
+                aria-label="Close terminal"
+                title="Close terminal"
+                onClick={() => handleCloseTerminal(item.i)}
+                className="app-icon-button flex h-6 w-6 shrink-0 items-center justify-center p-0"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )
+        })}
+        <button
+          type="button"
+          aria-label="New terminal"
+          title="New terminal"
+          onClick={handleCreateTerminal}
+          className="app-icon-button flex h-8 w-8 shrink-0 items-center justify-center border p-0"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+
       <div className="relative flex-1 min-h-0 app-panel flex flex-col overflow-hidden">
-        <TerminalPane
-          terminalId={activeTerminalId}
-          fontSize={12}
-          onActionsChange={setTerminalActions}
-        />
+        {layout.map((item) => {
+          const isActive = item.i === activeTerminalId
+          return (
+            <div
+              key={item.i}
+              className="absolute inset-0 flex min-h-0 flex-col"
+              style={{ display: isActive ? 'flex' : 'none' }}
+              aria-hidden={!isActive}
+            >
+              <TerminalPane
+                terminalId={item.i}
+                fontSize={12}
+                onActionsChange={isActive ? setTerminalActions : undefined}
+              />
+            </div>
+          )
+        })}
       </div>
 
       {createPortal(
@@ -287,12 +363,6 @@ function MobileTerminalFocus() {
         document.body
       )}
 
-      <Suspense fallback={null}>
-        <MobileTerminalQuickBall
-          terminalId={activeTerminalId}
-          terminalActions={terminalActions}
-        />
-      </Suspense>
     </div>
   )
 }
