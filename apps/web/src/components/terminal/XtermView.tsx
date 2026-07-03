@@ -374,6 +374,54 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     term.loadAddon(webLinksAddon)
     term.open(containerRef.current)
     const container = containerRef.current
+
+    // TUIs like Claude Code enable mouse reporting, which makes xterm.js send
+    // drags to the app instead of selecting text (breaking copy). Force
+    // left-button drags to keep selecting locally; other buttons and wheel
+    // events still reach the app. Uses a private xterm.js API (no public one).
+    const xtermCore = (
+      term as unknown as {
+        _core?: {
+          _selectionService?: {
+            shouldForceSelection(event: MouseEvent): boolean
+            disable(): void
+          }
+          coreService?: { triggerDataEvent(data: string, wasUserInput?: boolean): void }
+          coreMouseService?: { triggerMouseEvent(event: unknown): boolean }
+        }
+      }
+    )._core
+    const selectionService = xtermCore?._selectionService
+    if (selectionService) {
+      const shouldForceSelection = selectionService.shouldForceSelection.bind(selectionService)
+      selectionService.shouldForceSelection = (event) => event.button === 0 || shouldForceSelection(event)
+      // Apps re-assert mouse-tracking modes on every render, and each DECSET
+      // calls disable() -> clearSelection(), wiping the selection right after
+      // mouseup. Selection is forced above, so keep the service enabled.
+      selectionService.disable = () => {}
+    }
+    // Mouse reports (motion/wheel forwarded to the app) are sent as "user
+    // input", which SelectionService listens to and clears the selection on —
+    // so moving the mouse over a TUI with any-motion tracking wipes it.
+    // Unflag mouse reports as user input; keystrokes still clear as usual.
+    const coreService = xtermCore?.coreService
+    const coreMouseService = xtermCore?.coreMouseService
+    if (coreService && coreMouseService) {
+      const triggerDataEvent = coreService.triggerDataEvent.bind(coreService)
+      const triggerMouseEvent = coreMouseService.triggerMouseEvent.bind(coreMouseService)
+      let inMouseReport = false
+      coreService.triggerDataEvent = (data, wasUserInput) => {
+        triggerDataEvent(data, wasUserInput && !inMouseReport)
+      }
+      coreMouseService.triggerMouseEvent = (event) => {
+        inMouseReport = true
+        try {
+          return triggerMouseEvent(event)
+        } finally {
+          inMouseReport = false
+        }
+      }
+    }
     const nativeTouchScrollLayer = createNativeTouchScrollLayer(container, term)
     const sendScroll = (up: boolean, lines: number) => {
       term.scrollLines(up ? -lines : lines)
