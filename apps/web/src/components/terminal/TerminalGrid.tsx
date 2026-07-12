@@ -197,6 +197,10 @@ function MobileTerminalFocus() {
     if (!activeScopeId) return []
     return layoutsByScopeId[activeScopeId] ?? []
   }, [activeScopeId, layoutsByScopeId])
+  const scopeIds = useMemo(
+    () => Object.keys(layoutsByScopeId).filter((id) => (layoutsByScopeId[id]?.length ?? 0) > 0),
+    [layoutsByScopeId]
+  )
 
   useEffect(() => {
     if (layout.length === 0) {
@@ -311,22 +315,25 @@ function MobileTerminalFocus() {
       </div>
 
       <div className="relative flex-1 min-h-0 app-panel flex flex-col overflow-hidden">
-        {layout.map((item) => {
-          const isActive = item.i === activeTerminalId
-          return (
-            <div
-              key={item.i}
-              className="absolute inset-0 flex min-h-0 flex-col"
-              style={{ display: isActive ? 'flex' : 'none' }}
-              aria-hidden={!isActive}
-            >
-              <TerminalPane
-                terminalId={item.i}
-                fontSize={12}
-                onActionsChange={isActive ? setTerminalActions : undefined}
-              />
-            </div>
-          )
+        {scopeIds.map((scopeId) => {
+          const isActiveScope = scopeId === activeScopeId
+          return (layoutsByScopeId[scopeId] ?? []).map((item) => {
+            const isActive = isActiveScope && item.i === activeTerminalId
+            return (
+              <div
+                key={item.i}
+                className="absolute inset-0 flex min-h-0 flex-col"
+                style={{ display: isActive ? 'flex' : 'none' }}
+                aria-hidden={!isActive}
+              >
+                <TerminalPane
+                  terminalId={item.i}
+                  fontSize={12}
+                  onActionsChange={isActive ? setTerminalActions : undefined}
+                />
+              </div>
+            )
+          })
         })}
       </div>
 

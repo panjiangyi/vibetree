@@ -7,6 +7,9 @@ import type { PtyRuntimeSession, CreatePtyInput } from './pty.types.js'
 
 const OUTPUT_REPLAY_BUFFER_BYTES = 16 * 1024 * 1024
 const DEVICE_ATTRIBUTE_SEQUENCE_PATTERN = /\x1b(?:Z|\[(?:[?>]?[0-9;]*)?c)/g
+// OSC 10/11/12 replies report terminal colors. They are protocol traffic,
+// not display output, and become visible `rgb:...` text when replayed.
+const OSC_COLOR_RESPONSE_PATTERN = /\x1b\](?:10|11|12);rgb:[0-9a-f]+\/[0-9a-f]+\/[0-9a-f]+(?:\x07|\x1b\\)/gi
 
 function sendWs(ws: WebSocket, data: unknown): void {
   if (ws.readyState === ws.OPEN) {
@@ -14,8 +17,8 @@ function sendWs(ws: WebSocket, data: unknown): void {
   }
 }
 
-function stripDeviceAttributeSequences(data: string): string {
-  return data.replace(DEVICE_ATTRIBUTE_SEQUENCE_PATTERN, '')
+export function stripTerminalQuerySequences(data: string): string {
+  return data.replace(DEVICE_ATTRIBUTE_SEQUENCE_PATTERN, '').replace(OSC_COLOR_RESPONSE_PATTERN, '')
 }
 
 export type PtyManager = ReturnType<typeof createPtyManager>
@@ -73,10 +76,10 @@ export function createPtyManager() {
             data,
           })
         }
-        // Strip device-attribute requests/responses before buffering. Replaying
-        // old DA queries makes xterm answer them again on every tab mount, and
-        // those stale answers can show up as literal "1;2c" in the shell.
-        const replayData = stripDeviceAttributeSequences(data)
+        // Strip terminal query traffic before buffering. Replaying old queries
+        // makes xterm answer them again, while replaying replies can expose
+        // protocol payloads such as "1;2c" and "10;rgb:..." in the shell.
+        const replayData = stripTerminalQuerySequences(data)
         if (replayData) outputBuffer.push(replayData)
       })
 
