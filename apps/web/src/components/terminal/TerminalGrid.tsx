@@ -4,11 +4,10 @@ import { createPortal } from 'react-dom'
 import { ReactGridLayout } from 'react-grid-layout/legacy'
 import type { LayoutItem } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CornerDownLeft, Plus, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CornerDownLeft, Mic, Plus, X } from 'lucide-react'
 import { GRID_COLS, GRID_ROWS, useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
-import { terminalSocket } from '../../ws/terminal-socket.js'
 import { TerminalPane } from './TerminalPane.js'
 import type { TerminalViewActions } from './XtermView.js'
 
@@ -190,6 +189,8 @@ function MobileTerminalFocus() {
   const closeTerminal = useTerminalStore((s) => s.closeTerminal)
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
   const [terminalActions, setTerminalActions] = useState<TerminalViewActions | null>(null)
+  const [voiceInputMode, setVoiceInputMode] = useState(false)
+  const [voiceDraft, setVoiceDraft] = useState('')
   const previousLayoutLengthRef = useRef(0)
   const previousScopeIdRef = useRef<string | null>(null)
 
@@ -206,6 +207,7 @@ function MobileTerminalFocus() {
     if (layout.length === 0) {
       setActiveTerminalId(null)
       setTerminalActions(null)
+      setVoiceDraft('')
       return
     }
 
@@ -223,20 +225,23 @@ function MobileTerminalFocus() {
   }, [activeScopeId, layout])
 
   useEffect(() => {
-    setTerminalActions(null)
-  }, [activeTerminalId])
+    if (!voiceInputMode) {
+      setVoiceDraft('')
+    }
+  }, [voiceInputMode])
 
   const sendKey = useCallback(
     (data: string) => {
-      if (!activeTerminalId) return
-      terminalSocket.input({ terminalId: activeTerminalId, data })
-      terminalActions?.focus()
+      if (!activeTerminalId || !terminalActions) return
+      terminalActions.sendInput(data)
+      terminalActions.focus()
     },
     [activeTerminalId, terminalActions]
   )
 
   const keyboardBottomInset = useKeyboardBottomInset()
   const keyPadBottom = keyboardBottomInset + KEYBOARD_KEYS_MARGIN_PX
+  const showVoiceDraftOverlay = voiceInputMode || Boolean(voiceDraft)
 
   const handleCloseTerminal = useCallback(
     (terminalId: string) => {
@@ -312,6 +317,20 @@ function MobileTerminalFocus() {
         >
           <Plus className="h-4 w-4" />
         </button>
+        <button
+          type="button"
+          aria-label="Voice input mode"
+          title="Voice input mode"
+          aria-pressed={voiceInputMode}
+          onPointerDown={(event) => {
+            event.preventDefault()
+            setVoiceInputMode((enabled) => !enabled)
+            requestAnimationFrame(() => terminalActions?.focus())
+          }}
+          className={`app-icon-button flex h-8 w-8 shrink-0 items-center justify-center border p-0 ${voiceInputMode ? 'app-success' : ''}`}
+        >
+          <Mic className={`h-4 w-4 ${voiceInputMode ? 'fill-current' : ''}`} />
+        </button>
       </div>
 
       <div className="relative flex-1 min-h-0 app-panel flex flex-col overflow-hidden">
@@ -329,7 +348,9 @@ function MobileTerminalFocus() {
                 <TerminalPane
                   terminalId={item.i}
                   fontSize={12}
+                  voiceInputMode={isActive && voiceInputMode}
                   onActionsChange={isActive ? setTerminalActions : undefined}
+                  onVoiceDraftChange={isActive ? setVoiceDraft : undefined}
                 />
               </div>
             )
@@ -339,6 +360,22 @@ function MobileTerminalFocus() {
 
       {createPortal(
         <>
+          {showVoiceDraftOverlay && (
+            <div className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)]">
+              <div className="mx-auto flex max-w-screen-md items-start gap-2 rounded-md border px-3 py-2 shadow-lg backdrop-blur-sm app-panel">
+                <div className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${voiceInputMode ? 'bg-emerald-500' : 'app-muted bg-current/40'}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] uppercase tracking-[0.08em] app-muted">
+                    {voiceInputMode ? 'Voice Input' : 'Input Complete'}
+                  </div>
+                  <div className="min-h-[1.25rem] break-words text-sm leading-5">
+                    {voiceDraft || 'Listening...'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Floating arrow-key pad — fixed to the page, tracks the visual
               viewport so it rides up above the virtual keyboard. */}
           <div

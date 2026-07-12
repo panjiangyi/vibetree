@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -6,11 +6,25 @@ import '@xterm/xterm/css/xterm.css'
 import { isInputEventLoggingEnabled, logInputEvent } from '../../debug/input-event-logger.js'
 import { terminalSocket } from '../../ws/terminal-socket.js'
 import { useThemeStore } from '../../stores/theme.store.js'
+import {
+  createVoiceInputState,
+  getVoiceCommitText,
+  getVoiceDeletionCount,
+  getVoiceDraftText,
+  isVoiceTextData,
+  reconcileVoiceInputText,
+  stageVoiceDeletion,
+  stageVoiceFinalText,
+  stageVoiceText,
+  type VoiceInputState,
+} from './voice-input-state.js'
 
 type Props = {
   terminalId: string
   fontSize?: number
+  voiceInputMode?: boolean
   onActionsChange?: (actions: TerminalViewActions | null) => void
+  onVoiceDraftChange?: (draft: string) => void
 }
 
 type RecentInputTextChunk = {
@@ -21,6 +35,7 @@ type RecentInputTextChunk = {
 export type TerminalViewActions = {
   copySelection: () => void
   focus: () => void
+  sendInput: (data: string) => void
   scrollLines: (delta: number) => void
 }
 
@@ -31,6 +46,8 @@ const MAX_RECENT_INPUT_TEXT_LENGTH = 300
 const MAX_OUTPUT_CHARS_PER_FRAME = 64 * 1024
 const TOUCH_TAP_MOVE_THRESHOLD_PX = 8
 const USER_SCROLL_IDLE_MS = 150
+const VOICE_FINALIZATION_IDLE_MS = 1200
+const VOICE_INPUT_DRAIN_MS = 1800
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -320,10 +337,18 @@ function describeElement(element: EventTarget | Element | null | undefined): str
   return `${element.tagName.toLowerCase()}${id}${classes}`
 }
 
-export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props) {
+export function XtermView({
+  terminalId,
+  fontSize = 14,
+  voiceInputMode = false,
+  onActionsChange,
+  onVoiceDraftChange,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
+  const actionsRef = useRef<TerminalViewActions | null>(null)
+  const onActionsChangeRef = useRef(onActionsChange)
   const atBottomRef = useRef(true)
   const isComposingRef = useRef(false)
   const compositionStartValueRef = useRef('')
@@ -335,7 +360,60 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
   const recentXtermDataTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recentInputTextChunksRef = useRef<RecentInputTextChunk[]>([])
   const recentInputTextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [voiceDraft, setVoiceDraft] = useState('')
+  const voiceStateRef = useRef<VoiceInputState>(createVoiceInputState())
+  const voiceFinalizationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const voiceDrainTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const voiceInputDrainingRef = useRef(false)
+  const startVoiceInputRef = useRef<(() => void) | null>(null)
+  const stopVoiceInputRef = useRef<(() => void) | null>(null)
+  const voiceInputModeRef = useRef(voiceInputMode)
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme)
+
+  useEffect(() => {
+    onVoiceDraftChange?.(voiceDraft)
+  }, [onVoiceDraftChange, voiceDraft])
+
+  useEffect(() => {
+    return () => onVoiceDraftChange?.('')
+  }, [onVoiceDraftChange])
+
+  useEffect(() => {
+    const wasVoiceInputMode = voiceInputModeRef.current
+    voiceInputModeRef.current = voiceInputMode
+    if (voiceInputMode) {
+      if (!wasVoiceInputMode) startVoiceInputRef.current?.()
+      return
+    }
+
+    if (wasVoiceInputMode) {
+      if (stopVoiceInputRef.current) {
+        stopVoiceInputRef.current()
+      } else {
+        if (voiceFinalizationTimeoutRef.current) {
+          clearTimeout(voiceFinalizationTimeoutRef.current)
+          voiceFinalizationTimeoutRef.current = null
+        }
+        voiceStateRef.current = createVoiceInputState()
+        setVoiceDraft('')
+      }
+    } else if (!voiceInputDrainingRef.current) {
+      voiceStateRef.current = createVoiceInputState()
+      setVoiceDraft('')
+    }
+  }, [voiceInputMode])
+
+  useEffect(() => {
+    onActionsChangeRef.current = onActionsChange
+    onActionsChange?.(actionsRef.current)
+
+    return () => {
+      onActionsChange?.(null)
+      if (onActionsChangeRef.current === onActionsChange) {
+        onActionsChangeRef.current = undefined
+      }
+    }
+  }, [onActionsChange])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -575,6 +653,22 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     if (!textarea) {
       return
     }
+    // xterm uses a hidden textarea for input. Mark it as terminal input so
+    // mobile browsers and password managers do not offer form autofill.
+    textarea.name = 'terminal-input'
+    // WebKit may ignore "off" for fields it has already classified as a
+    // form input. one-time-code keeps the keyboard from offering contacts,
+    // payment cards, and saved credentials for terminal input.
+    textarea.autocomplete = 'one-time-code'
+    textarea.autocapitalize = 'off'
+    textarea.autocorrect = false
+    textarea.spellcheck = false
+    textarea.setAttribute('inputmode', 'text')
+    textarea.setAttribute('autofill', 'off')
+    textarea.setAttribute('data-form-type', 'other')
+    textarea.setAttribute('data-1p-ignore', 'true')
+    textarea.setAttribute('data-lpignore', 'true')
+    textarea.setAttribute('data-bwignore', 'true')
     const debugInputEventsEnabled = isInputEventLoggingEnabled()
 
     const clearImeEchoData = () => {
@@ -614,6 +708,15 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       if (remaining == null) return false
       recentXtermDataRef.current = remaining
       return true
+    }
+
+    const consumeRecentVoiceXtermText = (data: string): string | null => {
+      const pendingText = recentXtermDataRef.current
+      if (!pendingText) return null
+
+      const reconciled = reconcileVoiceInputText(pendingText, data)
+      recentXtermDataRef.current = reconciled.remainingXtermText
+      return reconciled.remainingInputText
     }
 
     const clearRecentInputText = () => {
@@ -695,6 +798,13 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       compositionText: compositionTextRef.current,
       imeEchoData: imeEchoDataRef.current,
       recentInputText: recentInputTextChunksRef.current.map((chunk) => chunk.data).join(''),
+      voiceInputMode: voiceInputModeRef.current,
+      voiceInputDraining: voiceInputDrainingRef.current,
+      voicePhase: voiceStateRef.current.phase,
+      voiceDraft: getVoiceDraftText(voiceStateRef.current),
+      voiceInterimText: voiceStateRef.current.interimText,
+      voiceFinalText: voiceStateRef.current.finalText,
+      voiceDeletionCount: voiceStateRef.current.deletionCount,
     })
 
     const logEvent = (source: string, event: Event) => {
@@ -759,6 +869,162 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       })
     }
 
+    const clearVoiceFinalizationTimer = () => {
+      if (voiceFinalizationTimeoutRef.current) {
+        clearTimeout(voiceFinalizationTimeoutRef.current)
+        voiceFinalizationTimeoutRef.current = null
+      }
+    }
+
+    const clearVoiceDrainTimer = () => {
+      if (voiceDrainTimeoutRef.current) {
+        clearTimeout(voiceDrainTimeoutRef.current)
+        voiceDrainTimeoutRef.current = null
+      }
+    }
+
+    const isVoiceCaptureActive = () =>
+      shouldUseNativeTouchScrollLayer() &&
+      (voiceInputModeRef.current || voiceInputDrainingRef.current)
+
+    const syncVoiceDraft = () => {
+      setVoiceDraft(getVoiceDraftText(voiceStateRef.current))
+    }
+
+    const resetVoiceDraft = () => {
+      clearVoiceFinalizationTimer()
+      voiceStateRef.current = createVoiceInputState()
+      setVoiceDraft('')
+    }
+
+    const commitVoiceDraft = (suffix = '') => {
+      const text = getVoiceCommitText(voiceStateRef.current)
+      resetVoiceDraft()
+
+      if (!voiceInputModeRef.current && voiceInputDrainingRef.current) {
+        clearVoiceDrainTimer()
+        voiceInputDrainingRef.current = false
+      }
+
+      const data = text + suffix
+      if (!data) return
+
+      logAppData('app.commitVoiceInput', data)
+      terminalSocket.input({ terminalId, data })
+      rememberInputText(text)
+    }
+
+    const scheduleVoiceFinalization = () => {
+      clearVoiceFinalizationTimer()
+      voiceFinalizationTimeoutRef.current = setTimeout(() => {
+        voiceFinalizationTimeoutRef.current = null
+        const state = voiceStateRef.current
+        if (!isVoiceCaptureActive() || state.phase !== 'finalizing' || !state.finalText) return
+
+        logAppData('app.voiceFinalizationTimeout', state.finalText)
+        commitVoiceDraft()
+      }, VOICE_FINALIZATION_IDLE_MS)
+    }
+
+    const stageVoiceTextData = (data: string) => {
+      voiceStateRef.current = stageVoiceText(voiceStateRef.current, data)
+      syncVoiceDraft()
+      logAppData('app.stageVoiceText', data)
+
+      if (voiceStateRef.current.phase === 'finalizing') {
+        scheduleVoiceFinalization()
+      } else {
+        clearVoiceFinalizationTimer()
+      }
+    }
+
+    const stageVoiceFinalTextData = (data: string) => {
+      voiceStateRef.current = stageVoiceFinalText(voiceStateRef.current, data)
+      syncVoiceDraft()
+      logAppData('app.stageVoiceFinalText', data)
+      scheduleVoiceFinalization()
+    }
+
+    const stageVoiceDeletionData = (data: string) => {
+      const deletionCount = getVoiceDeletionCount(data)
+      if (!deletionCount || voiceStateRef.current.phase === 'idle') return false
+
+      clearVoiceFinalizationTimer()
+      clearRecentXtermData()
+      for (let index = 0; index < deletionCount; index += 1) {
+        voiceStateRef.current = stageVoiceDeletion(voiceStateRef.current).state
+      }
+      syncVoiceDraft()
+      logAppData('app.stageVoiceDeletion', data)
+      return true
+    }
+
+    const consumeVoiceData = (data: string): boolean => {
+      if (!isVoiceCaptureActive()) return false
+
+      if (stageVoiceDeletionData(data)) return true
+      if (isVoiceTextData(data)) {
+        stageVoiceTextData(data)
+        return true
+      }
+      if (data === '\r' || data === '\n') {
+        commitVoiceDraft(data)
+        return true
+      }
+      if (data === '\x1b' || data === '\x03') {
+        resetVoiceDraft()
+        return false
+      }
+
+      // Commit staged text before forwarding any other control sequence so a
+      // toolbar/keyboard command cannot overtake the voice draft.
+      if (getVoiceCommitText(voiceStateRef.current)) {
+        commitVoiceDraft()
+      }
+      return false
+    }
+
+    const forwardTerminalData = (data: string) => {
+      if (consumeVoiceData(data)) {
+        // xterm normally emits before our textarea input listener. Remember
+        // direct text so that listener can distinguish an echo from the iOS
+        // cases where xterm emits nothing and input must be the fallback.
+        if (isVoiceTextData(data)) rememberRecentXtermData(data)
+        return
+      }
+
+      rememberRecentXtermData(data)
+      logAppData('app.terminalSocket.input', data)
+      terminalSocket.input({ terminalId, data })
+      rememberInputText(data)
+    }
+
+    startVoiceInputRef.current = () => {
+      clearVoiceDrainTimer()
+      clearRecentXtermData()
+      voiceInputDrainingRef.current = false
+      resetVoiceDraft()
+    }
+    stopVoiceInputRef.current = () => {
+      if (voiceStateRef.current.phase === 'idle' && !isComposingRef.current) {
+        voiceInputDrainingRef.current = false
+        resetVoiceDraft()
+        return
+      }
+
+      voiceInputDrainingRef.current = true
+      clearVoiceDrainTimer()
+      voiceDrainTimeoutRef.current = setTimeout(() => {
+        voiceDrainTimeoutRef.current = null
+        voiceInputDrainingRef.current = false
+        if (voiceStateRef.current.phase === 'finalizing' && voiceStateRef.current.finalText) {
+          commitVoiceDraft()
+        } else {
+          resetVoiceDraft()
+        }
+      }, VOICE_INPUT_DRAIN_MS)
+    }
+
     const sendCommittedImeText = (data: string) => {
       if (!data) return
 
@@ -767,10 +1033,15 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
         compositionEndTimeoutRef.current = null
       }
 
-      logAppData('app.sendCommittedImeText', data)
-      terminalSocket.input({ terminalId, data })
-      rememberInputText(data)
-      suppressImeEchoData(data)
+      if (isVoiceCaptureActive()) {
+        stageVoiceFinalTextData(data)
+        suppressImeEchoData(data)
+      } else {
+        logAppData('app.sendCommittedImeText', data)
+        terminalSocket.input({ terminalId, data })
+        rememberInputText(data)
+        suppressImeEchoData(data)
+      }
       compositionStartValueRef.current = textarea.value
       compositionTextRef.current = ''
       isComposingRef.current = false
@@ -811,6 +1082,17 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
     const handleBeforeInput = (event: Event) => {
       logEvent('textarea', event)
       const inputEvent = event as InputEvent
+
+      // xterm.onData is the canonical source for direct mobile voice input.
+      // Observing beforeinput here as well used to count every deletion twice.
+      if (
+        isVoiceCaptureActive() &&
+        !inputEvent.isComposing &&
+        inputEvent.inputType !== 'insertCompositionText'
+      ) {
+        return
+      }
+
       if (
         !isComposingRef.current &&
         (inputEvent.isComposing || inputEvent.inputType === 'insertCompositionText')
@@ -953,6 +1235,20 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       logEvent('textarea', event)
 
       if (!isComposingRef.current) {
+        if (isVoiceCaptureActive()) {
+          if (inputEvent.inputType === 'insertText' && inputEvent.data) {
+            const remainingText = consumeRecentVoiceXtermText(inputEvent.data)
+            const fallbackText = remainingText ?? inputEvent.data
+            if (!fallbackText) return
+
+            logAppData('app.voiceInputFallback', fallbackText)
+            stageVoiceTextData(fallbackText)
+          } else if (inputEvent.inputType === 'deleteContentBackward') {
+            logAppData('app.voiceDeletionFallback', '\x7f')
+            stageVoiceDeletionData('\x7f')
+          }
+          return
+        }
         if (inputEvent.inputType === 'insertText' && inputEvent.data) {
           sendInputEventText(inputEvent.data)
         }
@@ -970,7 +1266,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
         return
       }
 
-      if (containsCommittedCjkText(compositionTextRef.current)) {
+      if (!isVoiceCaptureActive() && containsCommittedCjkText(compositionTextRef.current)) {
         sendCommittedImeText(compositionTextRef.current)
       }
     }
@@ -1055,22 +1351,22 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
         return
       }
 
-      rememberRecentXtermData(data)
-      logAppData('app.terminalSocket.input', data)
-      terminalSocket.input({ terminalId, data })
-      rememberInputText(data)
+      forwardTerminalData(data)
     })
 
     termRef.current = term
     fitAddonRef.current = fitAddon
-    onActionsChange?.({
+    const actions: TerminalViewActions = {
       copySelection: () => copyText(getTerminalSelectionText()),
       focus: () => term.focus(),
+      sendInput: forwardTerminalData,
       scrollLines: (delta: number) => {
         // delta < 0 = scroll up (older), delta > 0 = scroll down (newer)
         sendScroll(delta < 0, Math.abs(delta))
       },
-    })
+    }
+    actionsRef.current = actions
+    onActionsChangeRef.current?.(actions)
 
     const resizeObserver = new ResizeObserver(() => {
       fitResizeAndMaybeScroll()
@@ -1199,6 +1495,11 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       clearImeEchoData()
       clearRecentXtermData()
       clearRecentInputText()
+      clearVoiceFinalizationTimer()
+      clearVoiceDrainTimer()
+      voiceInputDrainingRef.current = false
+      startVoiceInputRef.current = null
+      stopVoiceInputRef.current = null
       if (cachedSelectionTimeoutId) {
         clearTimeout(cachedSelectionTimeoutId)
       }
@@ -1224,9 +1525,19 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       term.dispose()
       termRef.current = null
       fitAddonRef.current = null
-      onActionsChange?.(null)
+      actionsRef.current = null
+      onActionsChangeRef.current?.(null)
     }
-  }, [fontSize, onActionsChange, resolvedTheme, terminalId])
+  }, [fontSize, resolvedTheme, terminalId])
 
-  return <div ref={containerRef} className="relative h-full min-h-0 w-full overflow-hidden" />
+  return (
+    <div className="relative h-full min-h-0 w-full overflow-hidden">
+      <div ref={containerRef} className="h-full min-h-0 w-full overflow-hidden" />
+      {!onVoiceDraftChange && voiceDraft && (
+        <div className="pointer-events-none absolute inset-x-2 top-2 z-10 max-h-24 overflow-hidden border px-2 py-1 text-sm app-panel-strong shadow-sm">
+          {voiceDraft}
+        </div>
+      )}
+    </div>
+  )
 }
