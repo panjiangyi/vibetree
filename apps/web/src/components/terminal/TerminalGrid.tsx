@@ -14,6 +14,10 @@ import type { TerminalViewActions } from './XtermView.js'
 
 const MARGIN = 8
 const KEYBOARD_KEYS_MARGIN_PX = 8
+// Vertical gap between the Enter key and the interrupt (Ctrl+C) key above it —
+// wide enough that a thumb reaching for Enter can't accidentally graze
+// Ctrl+C and kill the running command.
+const INTERRUPT_KEY_OFFSET_PX = 56
 // position: fixed anchors to the layout viewport, which iOS/Android don't
 // shrink when the virtual keyboard opens — only visualViewport does. Track it
 // so fixed overlays can be pushed up above the keyboard instead of ending up
@@ -353,16 +357,21 @@ function MobileTerminalFocus() {
             <div />
           </div>
 
-          {/* Floating interrupt (Ctrl+C) + Enter keys — fixed to the page, right side */}
+          {/* Floating Enter key — fixed to the page, right side */}
+          <div className="fixed right-2 z-30 pointer-events-none" style={{ bottom: keyPadBottom }}>
+            <FloatingKeyButton label="Enter" onPress={() => sendKey('\r')}>
+              <CornerDownLeft className="w-4 h-4" />
+            </FloatingKeyButton>
+          </div>
+
+          {/* Floating interrupt (Ctrl+C) key — set well above Enter so a thumb
+              reaching for Enter can't graze it and kill the running command. */}
           <div
-            className="fixed right-2 z-30 flex flex-col gap-1 pointer-events-none"
-            style={{ bottom: keyPadBottom }}
+            className="fixed right-2 z-30 pointer-events-none"
+            style={{ bottom: keyPadBottom + INTERRUPT_KEY_OFFSET_PX }}
           >
             <FloatingKeyButton label="Interrupt (Ctrl+C)" onPress={() => sendKey('\x03')}>
               <span className="text-xs font-mono font-semibold">^C</span>
-            </FloatingKeyButton>
-            <FloatingKeyButton label="Enter" onPress={() => sendKey('\r')}>
-              <CornerDownLeft className="w-4 h-4" />
             </FloatingKeyButton>
           </div>
         </>,
