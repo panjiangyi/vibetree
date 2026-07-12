@@ -1167,6 +1167,15 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       requestAnimationFrame(scrollToBottom)
     })
 
+    const keepMobileKeyboardOpen = shouldUseNativeTouchScrollLayer()
+    const refocusTerminal = () => {
+      if (!keepMobileKeyboardOpen || document.hidden) return
+      requestAnimationFrame(() => term.focus())
+    }
+    if (keepMobileKeyboardOpen) {
+      textarea.addEventListener('blur', refocusTerminal)
+    }
+
     term.focus()
 
     return () => {
@@ -1179,6 +1188,7 @@ export function XtermView({ terminalId, fontSize = 14, onActionsChange }: Props)
       textarea.removeEventListener('compositionupdate', handleCompositionUpdate)
       textarea.removeEventListener('compositionend', handleCompositionEnd)
       textarea.removeEventListener('input', handleTextInput)
+      textarea.removeEventListener('blur', refocusTerminal)
       for (const logger of passiveLoggers) {
         logger.target.removeEventListener(logger.name, logger.listener, logger.options)
       }

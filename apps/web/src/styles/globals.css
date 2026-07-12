@@ -101,6 +101,17 @@ body {
     width: 100dvw;
   }
 
+  .mobile-terminal-shell {
+    height: calc(50vh - 3rem);
+  }
+
+  @supports (height: 100lvh) {
+    .mobile-terminal-shell {
+      /* lvh remains the pre-keyboard screen height across keyboard apps. */
+      height: calc(50lvh - 3rem);
+    }
+  }
+
   .app-panel {
     background: var(--color-panel);
     border-color: var(--color-border);

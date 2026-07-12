@@ -268,7 +268,7 @@ function MobileTerminalFocus() {
   }
 
   return (
-    <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden">
+    <div className="mobile-terminal-shell flex-none min-h-0 flex flex-col overflow-hidden">
       <div className="flex items-center gap-1 border-b app-panel-strong overflow-x-auto px-1 py-1">
         {layout.map((item, index) => {
           const isActive = item.i === activeTerminalId
