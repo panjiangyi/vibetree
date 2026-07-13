@@ -17,6 +17,8 @@ const KEYBOARD_KEYS_MARGIN_PX = 8
 // wide enough that a thumb reaching for Enter can't accidentally graze
 // Ctrl+C and kill the running command.
 const INTERRUPT_KEY_OFFSET_PX = 56
+const EXTRA_RIGHT_KEY_OFFSET_PX = 112
+const EXTRA_LEFT_KEY_OFFSET_PX = 56
 // position: fixed anchors to the layout viewport, which iOS/Android don't
 // shrink when the virtual keyboard opens — only visualViewport does. Track it
 // so fixed overlays can be pushed up above the keyboard instead of ending up
@@ -401,6 +403,15 @@ function MobileTerminalFocus() {
             <div />
           </div>
 
+          <div
+            className="fixed left-2 z-30 pointer-events-none"
+            style={{ bottom: keyPadBottom + EXTRA_LEFT_KEY_OFFSET_PX }}
+          >
+            <FloatingKeyButton label="Tab" onPress={() => sendKey('\t')}>
+              <span className="text-[11px] font-mono font-semibold">Tab</span>
+            </FloatingKeyButton>
+          </div>
+
           {/* Floating Enter key — fixed to the page, right side */}
           <div className="fixed right-2 z-30 pointer-events-none" style={{ bottom: keyPadBottom }}>
             <FloatingKeyButton label="Enter" onPress={() => sendKey('\r')}>
@@ -416,6 +427,15 @@ function MobileTerminalFocus() {
           >
             <FloatingKeyButton label="Interrupt (Ctrl+C)" onPress={() => sendKey('\x03')}>
               <span className="text-xs font-mono font-semibold">^C</span>
+            </FloatingKeyButton>
+          </div>
+
+          <div
+            className="fixed right-2 z-30 pointer-events-none"
+            style={{ bottom: keyPadBottom + EXTRA_RIGHT_KEY_OFFSET_PX }}
+          >
+            <FloatingKeyButton label="Escape" onPress={() => sendKey('\x1b')}>
+              <span className="text-[11px] font-mono font-semibold">Esc</span>
             </FloatingKeyButton>
           </div>
         </>,
