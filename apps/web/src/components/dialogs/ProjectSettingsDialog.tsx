@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { Trash2, X } from 'lucide-react'
 import type { Project } from '@vibetree/shared'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
 
 export function ProjectSettingsDialog() {
   const closeDialog = useUiStore((s) => s.closeDialog)
+  const openDialog = useUiStore((s) => s.openDialog)
   const activeDialogData = useUiStore((s) => s.activeDialogData)
   const updateProject = useProjectStore((s) => s.updateProject)
 
@@ -113,6 +114,21 @@ export function ProjectSettingsDialog() {
           <p className="text-xs app-subtle">
             Worktrees are stored at: <code className="app-muted">~/.worktree/{project.name}/[branch]</code>
           </p>
+
+          <div className="border-t border-[var(--color-border)] pt-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">Remove project</p>
+              <p className="text-xs app-subtle mt-1">Stops managing this project without deleting any files.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => openDialog('removeProject', { project })}
+              className="app-button-danger shrink-0 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-4 h-4" />
+              Remove
+            </button>
+          </div>
 
           {error && (
             <div className="text-sm app-danger app-soft-danger px-3 py-2 rounded">

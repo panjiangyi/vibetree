@@ -8,6 +8,7 @@ import { AddProjectDialog } from '../dialogs/AddProjectDialog.js'
 import { CreateWorktreeDialog } from '../dialogs/CreateWorktreeDialog.js'
 import { EditWorktreeAliasDialog } from '../dialogs/EditWorktreeAliasDialog.js'
 import { RemoveWorktreeDialog } from '../dialogs/RemoveWorktreeDialog.js'
+import { RemoveProjectDialog } from '../dialogs/RemoveProjectDialog.js'
 import { SettingsDialog } from '../dialogs/SettingsDialog.js'
 import { ProjectSettingsDialog } from '../dialogs/ProjectSettingsDialog.js'
 import { OpenDirectoryTerminalDialog } from '../dialogs/OpenDirectoryTerminalDialog.js'
@@ -99,6 +100,7 @@ export function AppLayout() {
       {activeDialog === 'createWorktree' && <CreateWorktreeDialog />}
       {activeDialog === 'editWorktreeAlias' && <EditWorktreeAliasDialog />}
       {activeDialog === 'removeWorktree' && <RemoveWorktreeDialog />}
+      {activeDialog === 'removeProject' && <RemoveProjectDialog />}
       {activeDialog === 'settings' && <SettingsDialog />}
       {activeDialog === 'projectSettings' && <ProjectSettingsDialog />}
       {activeDialog === 'openDirectoryTerminal' && <OpenDirectoryTerminalDialog />}

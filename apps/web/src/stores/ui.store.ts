@@ -4,6 +4,7 @@ type DialogType =
   | 'addProject'
   | 'createWorktree'
   | 'removeWorktree'
+  | 'removeProject'
   | 'editWorktreeAlias'
   | 'settings'
   | 'projectSettings'

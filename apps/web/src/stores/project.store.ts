@@ -14,6 +14,7 @@ type ProjectStore = {
   loadProjectWorktrees: (projectId: string) => Promise<void>
   addProject: (input: CreateProjectInput) => Promise<void>
   updateProject: (projectId: string, input: UpdateProjectInput) => Promise<void>
+  removeProject: (projectId: string) => Promise<void>
   refreshProject: (projectId: string) => Promise<void>
   listBranches: (projectId: string) => Promise<{ local: string[]; remote: string[] }>
   createWorktree: (projectId: string, input: CreateWorktreeInput) => Promise<Worktree>
@@ -79,6 +80,26 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         projects: state.projects.map((p) => (p.id === projectId ? project : p)),
         loading: false,
       }))
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false })
+      throw error
+    }
+  },
+
+  removeProject: async (projectId: string) => {
+    set({ loading: true, error: null })
+    try {
+      await projectsApi.deleteProject(projectId)
+      set((state) => {
+        const { [projectId]: _removedWorktrees, ...worktreesByProjectId } = state.worktreesByProjectId
+        return {
+          projects: state.projects.filter((project) => project.id !== projectId),
+          worktreesByProjectId,
+          loading: false,
+        }
+      })
+      // Removing a project cascades its saved terminal records in the API.
+      await useTerminalStore.getState().loadTerminals()
     } catch (error) {
       set({ error: (error as Error).message, loading: false })
       throw error
