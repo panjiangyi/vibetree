@@ -40,4 +40,5 @@ coverage/
 # Temporary
 tmp/
 temp/
-.omo
+.claude/
+.omo/
