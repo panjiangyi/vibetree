@@ -1,10 +1,10 @@
-# VibeTree Implementation Doc v0.1
+# WorktreeHub Implementation Doc v0.1
 
 ## 0. 文档目标
 
-本文档用于指导 **VibeTree v1** 的工程实现。
+本文档用于指导 **WorktreeHub v1** 的工程实现。
 
-VibeTree 的核心目标是：
+WorktreeHub 的核心目标是：
 
 > 构建一个本地运行的 Web 应用，用于管理 Git worktree，并为每个 worktree 创建、恢复、关闭和删除网页 terminal session。
 
@@ -53,7 +53,7 @@ better-sqlite3 >= 9
 
 ### 1.3 为什么不用复杂架构
 
-VibeTree 是 **Local First DevTool**，第一版不要引入：
+WorktreeHub 是 **Local First DevTool**，第一版不要引入：
 
 - Kubernetes
 - Redis
@@ -79,7 +79,7 @@ VibeTree 是 **Local First DevTool**，第一版不要引入：
 ### 2.1 推荐 Monorepo 结构
 
 ```txt
-vibetree/
+worktreehub/
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
@@ -157,12 +157,12 @@ vibetree/
 
 ```json
 {
-  "name": "vibetree",
+  "name": "worktreehub",
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "dev:web": "pnpm --filter @vibetree/web dev",
-    "dev:server": "pnpm --filter @vibetree/server dev",
+    "dev:web": "pnpm --filter @worktreehub/web dev",
+    "dev:server": "pnpm --filter @worktreehub/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint"
@@ -209,7 +209,7 @@ pnpm build
 运行：
 
 ```bash
-pnpm --filter @vibetree/server start
+pnpm --filter @worktreehub/server start
 ```
 
 生产模式中，后端可以 serve 前端静态文件：
@@ -232,33 +232,33 @@ http://127.0.0.1:3767
 macOS：
 
 ```txt
-~/Library/Application Support/VibeTree/vibetree.sqlite
+~/Library/Application Support/WorktreeHub/worktreehub.sqlite
 ```
 
 Linux：
 
 ```txt
-~/.local/share/vibetree/vibetree.sqlite
+~/.local/share/worktreehub/worktreehub.sqlite
 ```
 
 Windows：
 
 ```txt
-%APPDATA%/VibeTree/vibetree.sqlite
+%APPDATA%/WorktreeHub/worktreehub.sqlite
 ```
 
 第一版也可以简单放在：
 
 ```txt
-~/.vibetree/vibetree.sqlite
-~/.vibetree/config.json
+~/.worktreehub/worktreehub.sqlite
+~/.worktreehub/config.json
 ```
 
 推荐第一版：
 
 ```txt
-~/.vibetree/
-├── vibetree.sqlite
+~/.worktreehub/
+├── worktreehub.sqlite
 ├── config.json
 └── logs/
 ```
@@ -316,7 +316,7 @@ async function main() {
     port: config.port
   })
 
-  console.log(`VibeTree server running at http://${config.host}:${config.port}`)
+  console.log(`WorktreeHub server running at http://${config.host}:${config.port}`)
 }
 
 main().catch((error) => {
@@ -382,9 +382,9 @@ export type AppConfig = {
 ```ts
 export function getConfig(): AppConfig {
   return {
-    host: process.env.VIBETREE_HOST ?? '127.0.0.1',
-    port: Number(process.env.VIBETREE_PORT ?? 3767),
-    databasePath: process.env.VIBETREE_DB ?? getDefaultDbPath(),
+    host: process.env.WORKTREEHUB_HOST ?? '127.0.0.1',
+    port: Number(process.env.WORKTREEHUB_PORT ?? 3767),
+    databasePath: process.env.WORKTREEHUB_DB ?? getDefaultDbPath(),
     defaultShell: getPlatformDefaultShell(),
     terminal: {
       cols: 120,
@@ -1241,8 +1241,8 @@ create(input: CreatePtyInput) {
       ...input.env,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
-      VIBETREE: '1',
-      VIBETREE_TERMINAL_ID: input.terminalId
+      WORKTREEHUB: '1',
+      WORKTREEHUB_TERMINAL_ID: input.terminalId
     }
   })
 
@@ -1290,13 +1290,13 @@ create(input: CreatePtyInput) {
 ```ts
 function buildTerminalEnv(project: Project, wt: Worktree) {
   return {
-    VIBETREE_PROJECT_ID: project.id,
-    VIBETREE_PROJECT_NAME: project.name,
-    VIBETREE_PROJECT_PATH: project.repoPath,
-    VIBETREE_WORKTREE_ID: wt.id,
-    VIBETREE_WORKTREE_NAME: wt.name,
-    VIBETREE_WORKTREE_PATH: wt.path,
-    VIBETREE_WORKTREE_BRANCH: wt.branch ?? ''
+    WORKTREEHUB_PROJECT_ID: project.id,
+    WORKTREEHUB_PROJECT_NAME: project.name,
+    WORKTREEHUB_PROJECT_PATH: project.repoPath,
+    WORKTREEHUB_WORKTREE_ID: wt.id,
+    WORKTREEHUB_WORKTREE_NAME: wt.name,
+    WORKTREEHUB_WORKTREE_PATH: wt.path,
+    WORKTREEHUB_WORKTREE_BRANCH: wt.branch ?? ''
   }
 }
 ```
@@ -1629,7 +1629,7 @@ app.setErrorHandler((error, request, reply) => {
 规则：
 
 - 如果 Project 下存在 running terminal，拒绝删除。
-- 删除 Project 只删除 VibeTree 内记录。
+- 删除 Project 只删除 WorktreeHub 内记录。
 - 不删除磁盘文件。
 
 错误：
@@ -1844,7 +1844,7 @@ v1 只监听：
 - HTTP 认证中间件
 - WebSocket 鉴权
 
-这意味着 VibeTree v1 的定位是：
+这意味着 WorktreeHub v1 的定位是：
 
 > 仅供当前机器当前用户使用的本地开发工具。
 
@@ -2038,7 +2038,7 @@ export function AppLayout() {
 内容：
 
 ```txt
-VibeTree | Add Project | Refresh | Running: N | Settings
+WorktreeHub | Add Project | Refresh | Running: N | Settings
 ```
 
 行为：
@@ -2110,7 +2110,7 @@ setActiveTerminal(terminal.id)
 ### 17.1 安装依赖
 
 ```bash
-pnpm --filter @vibetree/web add @xterm/xterm @xterm/addon-fit @xterm/addon-web-links
+pnpm --filter @worktreehub/web add @xterm/xterm @xterm/addon-fit @xterm/addon-web-links
 ```
 
 如果包名仍使用旧版：
@@ -2394,13 +2394,13 @@ attach active terminal
 可以存 localStorage：
 
 ```ts
-localStorage.setItem('vibetree.activeTerminalId', terminalId)
+localStorage.setItem('worktreehub.activeTerminalId', terminalId)
 ```
 
 启动时：
 
 ```ts
-const saved = localStorage.getItem('vibetree.activeTerminalId')
+const saved = localStorage.getItem('worktreehub.activeTerminalId')
 if (saved && terminals.some(t => t.id === saved)) {
   setActiveTerminal(saved)
 } else {
@@ -2415,7 +2415,7 @@ if (saved && terminals.some(t => t.id === saved)) {
 没有 project：
 
 ```txt
-Welcome to VibeTree
+Welcome to WorktreeHub
 
 Add your first Git project to start managing worktrees and terminals.
 
@@ -2651,13 +2651,13 @@ Fastify logger 输出：
 可创建临时 Git repo：
 
 ```bash
-mkdir /tmp/vibetree-test
-cd /tmp/vibetree-test
+mkdir /tmp/worktreehub-test
+cd /tmp/worktreehub-test
 git init
 touch README.md
 git add .
 git commit -m "init"
-git worktree add -b feature-login ../vibetree-test-feature-login main
+git worktree add -b feature-login ../worktreehub-test-feature-login main
 ```
 
 测试：
@@ -2962,7 +2962,7 @@ Demo 验收命令：
 ```bash
 pwd
 git branch --show-current
-echo $VIBETREE_WORKTREE_PATH
+echo $WORKTREEHUB_WORKTREE_PATH
 ```
 
 预期：
@@ -2970,7 +2970,7 @@ echo $VIBETREE_WORKTREE_PATH
 ```txt
 pwd 输出对应 worktree path
 git branch 输出对应 branch
-VIBETREE_WORKTREE_PATH 输出对应 worktree path
+WORKTREEHUB_WORKTREE_PATH 输出对应 worktree path
 ```
 
 ## 31. 开发者启动命令草案
@@ -2978,8 +2978,8 @@ VIBETREE_WORKTREE_PATH 输出对应 worktree path
 ### 31.1 初始化
 
 ```bash
-mkdir vibetree
-cd vibetree
+mkdir worktreehub
+cd worktreehub
 pnpm init
 ```
 
@@ -2992,20 +2992,20 @@ mkdir -p apps/server apps/web packages/shared
 ### 31.3 Server 依赖
 
 ```bash
-pnpm --filter @vibetree/server add fastify @fastify/cors @fastify/websocket ws better-sqlite3 execa node-pty nanoid
-pnpm --filter @vibetree/server add -D typescript tsx @types/node @types/ws
+pnpm --filter @worktreehub/server add fastify @fastify/cors @fastify/websocket ws better-sqlite3 execa node-pty nanoid
+pnpm --filter @worktreehub/server add -D typescript tsx @types/node @types/ws
 ```
 
 ### 31.4 Web 依赖
 
 ```bash
-pnpm --filter @vibetree/web add react react-dom zustand @xterm/xterm @xterm/addon-fit @xterm/addon-web-links
-pnpm --filter @vibetree/web add -D vite typescript @types/react @types/react-dom
+pnpm --filter @worktreehub/web add react react-dom zustand @xterm/xterm @xterm/addon-fit @xterm/addon-web-links
+pnpm --filter @worktreehub/web add -D vite typescript @types/react @types/react-dom
 ```
 
 ## 32. 最终实现原则
 
-VibeTree 的实现要一直围绕这几条原则：
+WorktreeHub 的实现要一直围绕这几条原则：
 
 1. 不要做任意命令执行 API。
 2. 不要让 terminal 脱离 worktree 存在。
@@ -3018,10 +3018,10 @@ VibeTree 的实现要一直围绕这几条原则：
 
 ## 33. v1 完成后的系统形态
 
-v1 完成后，VibeTree 的工作方式应该是：
+v1 完成后，WorktreeHub 的工作方式应该是：
 
 ```txt
-用户打开 VibeTree
+用户打开 WorktreeHub
   ↓
 添加本地 Git 项目
   ↓
@@ -3038,4 +3038,4 @@ v1 完成后，VibeTree 的工作方式应该是：
 刷新页面后继续 attach
 ```
 
-这就是 VibeTree 的最小闭环。它很窄，但很锋利。这个方向非常适合先做成一个稳定、好用、开发者愿意每天打开的本地工具。
+这就是 WorktreeHub 的最小闭环。它很窄，但很锋利。这个方向非常适合先做成一个稳定、好用、开发者愿意每天打开的本地工具。

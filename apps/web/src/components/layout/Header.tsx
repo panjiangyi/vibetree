@@ -13,13 +13,13 @@ function getMobileTitle(params: {
 }) {
   const { activeTerminal, activeProject, activeWorktree } = params
 
-  if (!activeTerminal) return 'VibeTree'
+  if (!activeTerminal) return 'WorktreeHub'
 
   if (activeTerminal.scopeType === 'directory') {
     return activeTerminal.scopeLabel || 'Directory Terminal'
   }
 
-  if (!activeProject) return 'VibeTree'
+  if (!activeProject) return 'WorktreeHub'
 
   const alias = activeWorktree?.displayName || activeWorktree?.name
   const fallback = activeWorktree?.branch || null
@@ -102,7 +102,7 @@ export function Header() {
 
       <div className="hidden md:flex items-center gap-2 font-semibold">
         <Terminal className="w-5 h-5 app-success" />
-        <span>VibeTree</span>
+        <span>WorktreeHub</span>
       </div>
 
       <button

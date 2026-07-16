@@ -1,5 +1,5 @@
 import type WebSocket from 'ws'
-import type { TerminalClientMessage, TerminalServerMessage } from '@vibetree/shared'
+import type { TerminalClientMessage, TerminalServerMessage } from '@worktreehub/shared'
 
 export function sendWs(ws: WebSocket, message: TerminalServerMessage): void {
   if (ws.readyState === ws.OPEN) {

@@ -22,7 +22,7 @@ importers:
       '@fastify/websocket':
         specifier: ^11.0.2
         version: 11.2.0
-      '@vibetree/shared':
+      '@worktreehub/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       better-sqlite3:
@@ -80,7 +80,7 @@ importers:
       '@radix-ui/react-slot':
         specifier: ^1.2.3
         version: 1.2.4(@types/react@19.2.16)(react@19.2.7)
-      '@vibetree/shared':
+      '@worktreehub/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@xterm/addon-fit':

@@ -661,7 +661,7 @@ export function XtermView({
     // payment cards, and saved credentials for terminal input.
     textarea.autocomplete = 'one-time-code'
     textarea.autocapitalize = 'off'
-    textarea.autocorrect = false
+    textarea.setAttribute('autocorrect', 'off')
     textarea.spellcheck = false
     textarea.setAttribute('inputmode', 'text')
     textarea.setAttribute('autofill', 'off')

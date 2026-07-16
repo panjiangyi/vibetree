@@ -30,7 +30,7 @@ export function LoginScreen() {
                 <Terminal className="h-6 w-6 app-accent" />
               </div>
               <div>
-                <h1 className="m-0 text-2xl font-semibold">VibeTree</h1>
+                <h1 className="m-0 text-2xl font-semibold">WorktreeHub</h1>
                 <p className="m-0 mt-1 text-sm app-muted">Sign in to access your workspace terminals.</p>
               </div>
             </div>

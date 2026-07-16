@@ -6,7 +6,7 @@ import type {
   OpenDirectoryTerminalInput,
   OpenDirectoryTerminalResult,
   CreateDirectoryTerminalInput,
-} from '@vibetree/shared'
+} from '@worktreehub/shared'
 
 export async function listTerminals(): Promise<TerminalSession[]> {
   return apiFetch('/api/terminals')

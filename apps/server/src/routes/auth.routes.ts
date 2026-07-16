@@ -1,4 +1,4 @@
-import type { LoginInput } from '@vibetree/shared'
+import type { LoginInput } from '@worktreehub/shared'
 import { z } from 'zod'
 import type { FastifyInstance } from 'fastify'
 import type { AuthService } from '../modules/auth/auth.service.js'

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import type { CheckMergeInput } from '@vibetree/shared'
+import type { CheckMergeInput } from '@worktreehub/shared'
 import type { WorktreeService } from '../modules/worktrees/worktree.service.js'
 
 const createWorktreeSchema = z.object({

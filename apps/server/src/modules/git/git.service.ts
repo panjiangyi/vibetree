@@ -1,5 +1,5 @@
 import { execa } from 'execa'
-import type { MergeCheckResult } from '@vibetree/shared'
+import type { MergeCheckResult } from '@worktreehub/shared'
 import { AppError } from '../../utils/app-error.js'
 import { parseWorktreePorcelain } from './git.parser.js'
 import type { GitWorktreeInfo } from './git.types.js'

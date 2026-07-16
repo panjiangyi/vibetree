@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Project, Worktree, CreateProjectInput, CreateWorktreeInput, UpdateProjectInput, UpdateWorktreeInput } from '@vibetree/shared'
+import type { Project, Worktree, CreateProjectInput, CreateWorktreeInput, UpdateProjectInput, UpdateWorktreeInput } from '@worktreehub/shared'
 import * as projectsApi from '../api/projects.api.js'
 import * as worktreesApi from '../api/worktrees.api.js'
 import { useTerminalStore } from './terminal.store.js'

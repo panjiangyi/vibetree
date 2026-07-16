@@ -1,5 +1,5 @@
 import { apiFetch } from './client.js'
-import type { Project, CreateProjectInput, UpdateProjectInput } from '@vibetree/shared'
+import type { Project, CreateProjectInput, UpdateProjectInput } from '@worktreehub/shared'
 
 export async function listProjects(): Promise<Project[]> {
   return apiFetch('/api/projects')

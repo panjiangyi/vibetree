@@ -1,5 +1,5 @@
 import { X, RotateCw, AlertCircle } from 'lucide-react'
-import type { TerminalSession } from '@vibetree/shared'
+import type { TerminalSession } from '@worktreehub/shared'
 
 type Props = {
   terminal: TerminalSession

@@ -10,7 +10,7 @@ async function main() {
     port: config.port,
   })
 
-  console.log(`VibeTree server running at http://${config.host}:${config.port}`)
+  console.log(`WorktreeHub server running at http://${config.host}:${config.port}`)
 }
 
 main().catch((error) => {

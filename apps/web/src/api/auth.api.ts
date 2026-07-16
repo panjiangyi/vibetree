@@ -1,4 +1,4 @@
-import type { AuthSessionResponse, LoginInput } from '@vibetree/shared'
+import type { AuthSessionResponse, LoginInput } from '@worktreehub/shared'
 import { apiFetch } from './client.js'
 
 export async function getSession(): Promise<AuthSessionResponse> {

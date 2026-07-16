@@ -13,7 +13,7 @@ let promptDir: string | null = null
 function ensurePromptDir(): string {
   if (promptDir) return promptDir
 
-  promptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vibetree-shell-'))
+  promptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'worktreehub-shell-'))
 
   const bashrc = String.raw`if [ -r "$HOME/.bashrc" ]; then
   . "$HOME/.bashrc"
@@ -25,8 +25,8 @@ if [ -n "$PS1" ]; then
 fi
 `
 
-  const zshrc = String.raw`if [ -n "$VIBETREE_ORIGINAL_ZDOTDIR" ] && [ -r "$VIBETREE_ORIGINAL_ZDOTDIR/.zshrc" ]; then
-  source "$VIBETREE_ORIGINAL_ZDOTDIR/.zshrc"
+  const zshrc = String.raw`if [ -n "$WORKTREEHUB_ORIGINAL_ZDOTDIR" ] && [ -r "$WORKTREEHUB_ORIGINAL_ZDOTDIR/.zshrc" ]; then
+  source "$WORKTREEHUB_ORIGINAL_ZDOTDIR/.zshrc"
 elif [ -r "$HOME/.zshrc" ]; then
   source "$HOME/.zshrc"
 fi
@@ -46,7 +46,7 @@ function shellName(shell: string): string {
 }
 
 export function buildShellLaunchConfig(shell: string): ShellLaunchConfig {
-  if (process.env.VIBETREE_COMPACT_PROMPT === '0') {
+  if (process.env.WORKTREEHUB_COMPACT_PROMPT === '0') {
     return { shell, args: [], env: {} }
   }
 
@@ -69,7 +69,7 @@ export function buildShellLaunchConfig(shell: string): ShellLaunchConfig {
       args: [],
       env: {
         ZDOTDIR: dir,
-        VIBETREE_ORIGINAL_ZDOTDIR: process.env.ZDOTDIR ?? '',
+        WORKTREEHUB_ORIGINAL_ZDOTDIR: process.env.ZDOTDIR ?? '',
       },
     }
   }

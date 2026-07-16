@@ -1,13 +1,13 @@
-# VibeTree v1 Task List
+# WorktreeHub v1 Task List
 
-这份任务清单基于 [VibeTree-Implementation-Doc-v0.1.md](/mnt/data/james/Documents/sidework/vibetree/docs/VibeTree-Implementation-Doc-v0.1.md) 拆解，目标是：按顺序完成这些任务后，VibeTree v1 作为一个本地工具可交付。
+这份任务清单基于 [WorktreeHub-Implementation-Doc-v0.1.md](/mnt/data/james/Documents/sidework/worktreehub/docs/WorktreeHub-Implementation-Doc-v0.1.md) 拆解，目标是：按顺序完成这些任务后，WorktreeHub v1 作为一个本地工具可交付。
 
 ## 1. 完成标准
 
 - [ ] 项目可在 Linux/macOS 上以 Node 22 LTS 运行。
 - [ ] `pnpm install` 成功。
 - [ ] `pnpm dev` 可同时启动前后端。
-- [ ] `pnpm --filter @vibetree/server start` 可在生产模式下提供前端静态文件。
+- [ ] `pnpm --filter @worktreehub/server start` 可在生产模式下提供前端静态文件。
 - [ ] 用户可添加本地 Git 项目。
 - [ ] 用户可查看 main worktree 和已有 worktree。
 - [ ] 用户可创建新 worktree。
@@ -138,7 +138,7 @@
 
 - [ ] `host` 默认 `127.0.0.1`。
 - [ ] `port` 默认 `3767`。
-- [ ] `databasePath` 默认 `~/.vibetree/vibetree.sqlite`。
+- [ ] `databasePath` 默认 `~/.worktreehub/worktreehub.sqlite`。
 - [ ] `defaultShell` 按平台推导。
 - [ ] `terminal.cols` 默认 `120`。
 - [ ] `terminal.rows` 默认 `30`。
@@ -150,7 +150,7 @@
 
 ## 8. 数据库
 
-- [ ] 创建 `~/.vibetree` 目录初始化逻辑。
+- [ ] 创建 `~/.worktreehub` 目录初始化逻辑。
 - [ ] 创建 `schema.sql`。
 - [ ] 建立 `projects` 表。
 - [ ] 建立 `worktrees` 表。
@@ -302,7 +302,7 @@
 - [ ] 实现 `detachClientFromAll`。
 - [ ] `onData` 时广播输出并写入 ring buffer。
 - [ ] `onExit` 时更新 DB、通知客户端并移除 runtime。
-- [ ] 注入 `VIBETREE_*` 环境变量。
+- [ ] 注入 `WORKTREEHUB_*` 环境变量。
 
 ## 17. WebSocket
 
@@ -565,7 +565,7 @@
 - [ ] 测试删除 clean worktree。
 - [ ] 测试 main/dirty/running worktree 删除失败。
 - [ ] 测试创建 terminal 后 `pwd` 输出正确。
-- [ ] 测试 `echo $VIBETREE_WORKTREE_PATH` 输出正确。
+- [ ] 测试 `echo $WORKTREEHUB_WORKTREE_PATH` 输出正确。
 - [ ] 测试 ws attach/input/output/resize。
 - [ ] 测试 server boot 后 `running -> disconnected`。
 
@@ -600,11 +600,11 @@
 - [ ] 本地 `pnpm test` 通过。
 - [ ] 本地 `pnpm build` 通过。
 - [ ] 本地 `pnpm test:e2e` 通过。
-- [ ] 本地 `pnpm --filter @vibetree/server start` 后可直接从 `127.0.0.1:3767` 打开应用。
+- [ ] 本地 `pnpm --filter @worktreehub/server start` 后可直接从 `127.0.0.1:3767` 打开应用。
 - [ ] 手动验收以下命令链路：
 - [ ] `pwd`
 - [ ] `git branch --show-current`
-- [ ] `echo $VIBETREE_WORKTREE_PATH`
+- [ ] `echo $WORKTREEHUB_WORKTREE_PATH`
 - [ ] 验证一个 worktree 开多个 terminal。
 - [ ] 验证浏览器刷新后可恢复 attach。
 - [ ] 验证后端重启后 terminal 变 `disconnected`。

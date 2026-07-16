@@ -52,8 +52,8 @@ export function createPtyManager() {
           ...launchConfig.env,
           TERM: 'xterm-256color',
           COLORTERM: 'truecolor',
-          VIBETREE: '1',
-          VIBETREE_TERMINAL_ID: input.terminalId,
+          WORKTREEHUB: '1',
+          WORKTREEHUB_TERMINAL_ID: input.terminalId,
         },
       })
 

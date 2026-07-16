@@ -44,7 +44,7 @@ function decodeClipboardImage(mimeType: string, dataBase64: string): { buffer: B
 
 async function saveClipboardImage(input: { terminalId: string; mimeType: string; dataBase64: string }): Promise<string> {
   const decoded = decodeClipboardImage(input.mimeType, input.dataBase64)
-  const dir = path.join(os.tmpdir(), 'vibetree-clipboard-images', sanitizePathSegment(input.terminalId))
+  const dir = path.join(os.tmpdir(), 'worktreehub-clipboard-images', sanitizePathSegment(input.terminalId))
   await fs.mkdir(dir, { recursive: true, mode: 0o700 })
 
   const filePath = path.join(dir, 'clipboard-' + Date.now() + '-' + randomUUID() + '.' + decoded.extension)

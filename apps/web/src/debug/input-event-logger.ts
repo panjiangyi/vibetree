@@ -2,7 +2,7 @@ import { getApiBase } from '../api/client.js'
 
 type InputEventLog = Record<string, unknown>
 
-const LOCAL_STORAGE_KEY = 'vibetree.debugInputEvents'
+const LOCAL_STORAGE_KEY = 'worktreehub.debugInputEvents'
 const QUERY_PARAM = 'debugInputEvents'
 const FLUSH_INTERVAL_MS = 250
 const MAX_QUEUE_LENGTH = 500
@@ -26,7 +26,7 @@ export function isInputEventLoggingEnabled() {
   }
 
   enabledCache =
-    import.meta.env.VITE_VIBETREE_DEBUG_INPUT_EVENTS === '1' ||
+    import.meta.env.VITE_WORKTREEHUB_DEBUG_INPUT_EVENTS === '1' ||
     new URLSearchParams(window.location.search).get(QUERY_PARAM) === '1' ||
     localStorageEnabled
 

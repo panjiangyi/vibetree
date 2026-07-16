@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3'
-import type { Worktree } from '@vibetree/shared'
+import type { Worktree } from '@worktreehub/shared'
 
 type WorktreeRow = {
   id: string

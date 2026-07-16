@@ -124,7 +124,7 @@ if (message.type === 'attached') {
 ## 验证
 
 - `pnpm -r typecheck` 全部通过（packages/shared、apps/server、apps/web）。
-- `pnpm --filter @vibetree/web build` 构建通过。
+- `pnpm --filter @worktreehub/web build` 构建通过。
 - 以上问题均为逻辑竞态/误判，本地类型检查和构建无法覆盖实际交互体验，建议手动验证以下场景：
   - 终端持续输出（如运行 `claude` 或 `pnpm dev` 打印日志）时，尝试用鼠标滚轮/触摸板向上翻页，确认不会被拉回底部。
   - 手机上对着终端手指甩动滑屏，确认惯性滚动顺畅、不会滑一下就停。

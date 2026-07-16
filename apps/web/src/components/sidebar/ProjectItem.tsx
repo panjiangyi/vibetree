@@ -1,5 +1,5 @@
 import { ChevronRight, ChevronDown, RefreshCw, Plus, Settings } from 'lucide-react'
-import type { Project, Worktree } from '@vibetree/shared'
+import type { Project, Worktree } from '@worktreehub/shared'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
 import { WorktreeItem } from './WorktreeItem.js'

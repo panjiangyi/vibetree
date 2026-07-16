@@ -18,7 +18,9 @@ const KEYBOARD_KEYS_MARGIN_PX = 8
 // Ctrl+C and kill the running command.
 const INTERRUPT_KEY_OFFSET_PX = 56
 const EXTRA_RIGHT_KEY_OFFSET_PX = 112
-const EXTRA_LEFT_KEY_OFFSET_PX = 56
+// Tab now aligns with the Escape key so the floating controls read as two
+// clean columns on small mobile widths.
+const EXTRA_LEFT_KEY_OFFSET_PX = EXTRA_RIGHT_KEY_OFFSET_PX
 // position: fixed anchors to the layout viewport, which iOS/Android don't
 // shrink when the virtual keyboard opens — only visualViewport does. Track it
 // so fixed overlays can be pushed up above the keyboard instead of ending up

@@ -25,7 +25,7 @@ async function commitFile(repoPath: string, name: string, content: string, messa
 }
 
 async function createRepo() {
-  const repoPath = await fs.mkdtemp(path.join(os.tmpdir(), 'vibetree-git-test-'))
+  const repoPath = await fs.mkdtemp(path.join(os.tmpdir(), 'worktreehub-git-test-'))
   tempDirs.push(repoPath)
 
   await git(repoPath, ['init', '-q', '-b', 'main'])

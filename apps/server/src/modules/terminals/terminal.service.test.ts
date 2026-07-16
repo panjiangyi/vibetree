@@ -56,7 +56,7 @@ function createMockPtyManager() {
 }
 
 async function createContext() {
-  const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'vibetree-terminal-test-'))
+  const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'worktreehub-terminal-test-'))
   tempDirs.push(rootPath)
 
   const db = createDatabase(path.join(rootPath, 'app.db'))
@@ -83,7 +83,7 @@ async function createContext() {
         ipWindowMs: 60_000,
         globalFailureLimit: 10,
         globalCooldownMs: 60_000,
-        cookieName: 'vibetree_session',
+        cookieName: 'worktreehub_session',
       },
       terminal: {
         cols: 120,

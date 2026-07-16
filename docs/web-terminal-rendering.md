@@ -1,4 +1,4 @@
-# Web 终端渲染原理与 VibeTree 实现说明
+# Web 终端渲染原理与 WorktreeHub 实现说明
 
 更新时间：2026-06-27
 
@@ -6,7 +6,7 @@
 
 网页里的“终端”不是浏览器在运行一个真正的系统终端窗口，而是前端用终端模拟器库接收一串终端字节流，解析 ANSI/VT 控制序列，维护一份屏幕缓冲区，再把缓冲区绘制到网页元素上。后端负责把浏览器和真实 shell/命令进程之间的输入输出接起来。
 
-在 VibeTree 里，这个终端模拟器是 `@xterm/xterm`，真实终端会话由后端的 `node-pty` 管理，前后端之间通过 WebSocket 传递 JSON 消息。
+在 WorktreeHub 里，这个终端模拟器是 `@xterm/xterm`，真实终端会话由后端的 `node-pty` 管理，前后端之间通过 WebSocket 传递 JSON 消息。
 
 ## 核心概念
 
@@ -38,13 +38,13 @@ PTY 是 pseudo-terminal，也就是伪终端。它让一个普通后端进程看
 - 标准输出应该包含终端控制序列
 - resize、Ctrl+C、方向键等终端行为
 
-VibeTree 后端用 `node-pty` 创建 PTY，会把 `TERM` 设置为 `xterm-256color`，并把 PTY 输出原样发送给浏览器。
+WorktreeHub 后端用 `node-pty` 创建 PTY，会把 `TERM` 设置为 `xterm-256color`，并把 PTY 输出原样发送给浏览器。
 
 ### 3. WebSocket
 
 终端输出是持续流，不适合普通 HTTP 请求/响应。WebSocket 提供一条长连接，让前端可以实时发送输入，后端也可以实时推送输出。
 
-VibeTree 的 WebSocket 消息不是直接传二进制流，而是 JSON 协议：
+WorktreeHub 的 WebSocket 消息不是直接传二进制流，而是 JSON 协议：
 
 - 前端发：`attach`、`input`、`resize`、`paste-image`、`ping`
 - 后端发：`attached`、`output`、`exit`、`error`、`pong`
@@ -78,7 +78,7 @@ VibeTree 的 WebSocket 消息不是直接传二进制流，而是 JSON 协议：
 
 xterm.js 会把键盘、鼠标、粘贴、组合输入等浏览器事件转换成终端输入数据。对应用层来说，主要入口是 `term.onData((data) => ...)`。
 
-在 VibeTree：
+在 WorktreeHub：
 
 - `apps/web/src/components/terminal/XtermView.tsx:826` 监听 `term.onData`
 - 收到输入后调用 `terminalSocket.input({ terminalId, data })`
@@ -90,7 +90,7 @@ xterm.js 会把键盘、鼠标、粘贴、组合输入等浏览器事件转换�
 
 后端 PTY 输出的数据会通过 WebSocket 的 `output` 消息发给前端。
 
-在 VibeTree：
+在 WorktreeHub：
 
 - `apps/server/src/modules/pty/pty.manager.ts:67` 监听 `ptyProcess.onData`
 - `apps/server/src/modules/pty/pty.manager.ts:71` 把数据包装成 `output`
@@ -110,7 +110,7 @@ xterm.js 会把键盘、鼠标、粘贴、组合输入等浏览器事件转换�
 
 普通命令输出主要进入 normal buffer，并受 scrollback 限制。vim、less、top 等全屏程序常用 alternate screen；alternate screen 里通常没有浏览器侧 scrollback，滚动由程序自身处理。
 
-VibeTree 的普通终端历史滚动交给 xterm.js 本地 viewport/scrollback；浮动滚动按钮也只调用 `term.scrollLines(...)`，不再通过后端命令驱动远端滚动。
+WorktreeHub 的普通终端历史滚动交给 xterm.js 本地 viewport/scrollback；浮动滚动按钮也只调用 `term.scrollLines(...)`，不再通过后端命令驱动远端滚动。
 
 相关代码：
 
@@ -127,9 +127,9 @@ xterm.js 的 renderer 根据当前 buffer 和 viewport，把字符格投影到�
 - 选择、复制、滚屏、字体测量都要重做
 - 不小心把终端输出当 HTML 会引入安全问题
 
-VibeTree 前端只做容器、主题、尺寸、输入兼容和流量调度，实际终端解析和绘制交给 xterm.js。
+WorktreeHub 前端只做容器、主题、尺寸、输入兼容和流量调度，实际终端解析和绘制交给 xterm.js。
 
-## VibeTree 当前实现
+## WorktreeHub 当前实现
 
 ### 依赖
 
@@ -187,7 +187,7 @@ VibeTree 前端只做容器、主题、尺寸、输入兼容和流量调度，�
 - `apps/server/src/websocket/terminal.ws.ts:98`
 - `apps/server/src/websocket/terminal.ws.ts:106`
 
-回放 buffer 很重要：React 组件重新挂载、页面刷新或 WebSocket 重连后，用户还能看到最近一段终端内容。VibeTree 当前 buffer 大小是 16 MiB，位置在 `apps/server/src/modules/pty/pty.manager.ts:8`。
+回放 buffer 很重要：React 组件重新挂载、页面刷新或 WebSocket 重连后，用户还能看到最近一段终端内容。WorktreeHub 当前 buffer 大小是 16 MiB，位置在 `apps/server/src/modules/pty/pty.manager.ts:8`。
 
 ### PTY 创建与输出广播
 
@@ -219,7 +219,7 @@ VibeTree 前端只做容器、主题、尺寸、输入兼容和流量调度，�
 
 终端输出可能非常快，例如 `pnpm install`、`cat large.log`、测试失败堆栈。直接把所有输出同步写入 xterm.js，容易卡住浏览器主线程。
 
-VibeTree 的前端做了两层调度：
+WorktreeHub 的前端做了两层调度：
 
 - 收到 `output` 后先追加到 `pendingOutput`
 - 每个 animation frame 最多写入 `64 * 1024` 字符
@@ -237,7 +237,7 @@ VibeTree 的前端做了两层调度：
 
 普通英文键盘输入可以直接走 `term.onData`。但中文、日文、韩文等 IME 输入更复杂，因为浏览器会触发 `compositionstart`、`compositionupdate`、`compositionend`、`beforeinput`、`input` 等事件，且不同平台会有回显和重复提交问题。
 
-VibeTree 在 `XtermView.tsx` 里额外处理了：
+WorktreeHub 在 `XtermView.tsx` 里额外处理了：
 
 - composition 状态
 - committed CJK text
@@ -273,7 +273,7 @@ VibeTree 在 `XtermView.tsx` 里额外处理了：
   -> shell/程序按新尺寸重绘
 ```
 
-VibeTree 在 `ResizeObserver` 中做这件事。
+WorktreeHub 在 `ResizeObserver` 中做这件事。
 
 ## 安全边界
 
@@ -288,7 +288,7 @@ VibeTree 在 `ResizeObserver` 中做这件事。
 - replay buffer 不能无限增长
 - 多 client attach 同一个 PTY 时，要明确会话隔离和权限边界
 
-VibeTree 当前有这些保护点：
+WorktreeHub 当前有这些保护点：
 
 - WebSocket attach 前调用 `authService.requireSession(...)`
 - clipboard image 限制 MIME 和最大 20 MiB
@@ -299,7 +299,7 @@ VibeTree 当前有这些保护点：
 
 ### 1. 输出背压
 
-WebSocket 和 xterm.js parser 都可能成为瓶颈。当前 VibeTree 已经在前端按 frame 分片写入 xterm.js，但还没有显式根据 `WebSocket.bufferedAmount` 或 PTY 输出速度做端到端背压。
+WebSocket 和 xterm.js parser 都可能成为瓶颈。当前 WorktreeHub 已经在前端按 frame 分片写入 xterm.js，但还没有显式根据 `WebSocket.bufferedAmount` 或 PTY 输出速度做端到端背压。
 
 如果后续遇到大输出卡顿，可以考虑：
 
@@ -314,11 +314,11 @@ CJK、emoji、组合字符不是单字节、单列宽。终端渲染必须依赖
 
 ### 3. alternate screen
 
-全屏程序通常使用 alternate screen。浏览器侧 scrollback 和全屏程序内部历史不是同一件事。VibeTree 不再用后端 copy-mode 模拟滚动；普通 shell 历史由 xterm.js 本地滚动，全屏程序历史由程序自身处理。
+全屏程序通常使用 alternate screen。浏览器侧 scrollback 和全屏程序内部历史不是同一件事。WorktreeHub 不再用后端 copy-mode 模拟滚动；普通 shell 历史由 xterm.js 本地滚动，全屏程序历史由程序自身处理。
 
 ### 4. reconnect 与 replay
 
-重连时 replay buffer 会重新写入 xterm.js。需要避免回放会触发终端应答的控制序列，所以 VibeTree 过滤了 device attribute 序列。以后如果引入更多终端查询序列，也要评估它们是否适合进入 replay buffer。
+重连时 replay buffer 会重新写入 xterm.js。需要避免回放会触发终端应答的控制序列，所以 WorktreeHub 过滤了 device attribute 序列。以后如果引入更多终端查询序列，也要评估它们是否适合进入 replay buffer。
 
 ## 排查问题时看哪里
 
@@ -357,7 +357,7 @@ CJK、emoji、组合字符不是单字节、单列宽。终端渲染必须依赖
 - `imeEchoDataRef`
 - `recentInputTextChunksRef`
 
-VibeTree 已经有 `apps/web/src/debug/input-event-logger.ts`，可以用来定位不同浏览器和输入法的事件差异。
+WorktreeHub 已经有 `apps/web/src/debug/input-event-logger.ts`，可以用来定位不同浏览器和输入法的事件差异。
 
 ## 参考资料
 

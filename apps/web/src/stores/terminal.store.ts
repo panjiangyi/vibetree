@@ -3,7 +3,7 @@ import type {
   TerminalSession,
   CreateTerminalInput,
   OpenDirectoryTerminalInput,
-} from '@vibetree/shared'
+} from '@worktreehub/shared'
 import * as terminalsApi from '../api/terminals.api.js'
 import { useLayoutStore } from './layout.store.js'
 import { terminalSocket } from '../ws/terminal-socket.js'
@@ -45,7 +45,7 @@ function pickFallbackScopeId(terminals: TerminalSession[], removedScopeId: strin
 
 export const useTerminalStore = create<TerminalStore>((set, get) => ({
   terminals: [],
-  activeScopeId: localStorage.getItem('vibetree.activeScopeId') ?? localStorage.getItem('vibetree.activeWorktreeId'),
+  activeScopeId: localStorage.getItem('worktreehub.activeScopeId') ?? localStorage.getItem('worktreehub.activeWorktreeId'),
   loading: false,
   error: null,
 
@@ -215,9 +215,9 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     set({ activeScopeId: scopeId })
     useLayoutStore.getState().setActiveScope(scopeId)
     if (scopeId) {
-      localStorage.setItem('vibetree.activeScopeId', scopeId)
+      localStorage.setItem('worktreehub.activeScopeId', scopeId)
     } else {
-      localStorage.removeItem('vibetree.activeScopeId')
+      localStorage.removeItem('worktreehub.activeScopeId')
     }
   },
 

@@ -5,7 +5,7 @@ import type {
   UpdateWorktreeInput,
   CheckMergeInput,
   MergeCheckResult,
-} from '@vibetree/shared'
+} from '@worktreehub/shared'
 
 export async function listWorktrees(projectId: string): Promise<Worktree[]> {
   return apiFetch(`/api/projects/${projectId}/worktrees`)

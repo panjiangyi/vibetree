@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import type { CreateDirectoryTerminalInput } from '@vibetree/shared'
+import type { CreateDirectoryTerminalInput } from '@worktreehub/shared'
 import type { TerminalService } from '../modules/terminals/terminal.service.js'
 
 const createTerminalSchema = z.object({

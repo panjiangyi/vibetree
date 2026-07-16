@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3'
-import type { TerminalSession, TerminalStatus, TerminalScopeType } from '@vibetree/shared'
+import type { TerminalSession, TerminalStatus, TerminalScopeType } from '@worktreehub/shared'
 
 type TerminalRow = {
   id: string

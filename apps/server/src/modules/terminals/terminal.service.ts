@@ -10,7 +10,7 @@ import type {
   OpenDirectoryTerminalInput,
   CreateDirectoryTerminalInput,
   OpenDirectoryTerminalResult,
-} from '@vibetree/shared'
+} from '@worktreehub/shared'
 import {
   AppError,
   WORKTREE_NOT_FOUND,
@@ -56,21 +56,21 @@ function defaultDirectoryTerminalTitle(scopeLabel: string, count: number): strin
 
 function buildWorktreeEnv(project: Project, worktree: Worktree): Record<string, string> {
   return {
-    VIBETREE_PROJECT_ID: project.id,
-    VIBETREE_PROJECT_NAME: project.name,
-    VIBETREE_PROJECT_PATH: project.repoPath,
-    VIBETREE_WORKTREE_ID: worktree.id,
-    VIBETREE_WORKTREE_NAME: worktree.name,
-    VIBETREE_WORKTREE_PATH: worktree.path,
-    VIBETREE_WORKTREE_BRANCH: worktree.branch ?? '',
+    WORKTREEHUB_PROJECT_ID: project.id,
+    WORKTREEHUB_PROJECT_NAME: project.name,
+    WORKTREEHUB_PROJECT_PATH: project.repoPath,
+    WORKTREEHUB_WORKTREE_ID: worktree.id,
+    WORKTREEHUB_WORKTREE_NAME: worktree.name,
+    WORKTREEHUB_WORKTREE_PATH: worktree.path,
+    WORKTREEHUB_WORKTREE_BRANCH: worktree.branch ?? '',
   }
 }
 
 function buildDirectoryEnv(scope: DirectoryScope): Record<string, string> {
   return {
-    VIBETREE_SCOPE_TYPE: 'directory',
-    VIBETREE_SCOPE_ID: scope.scopeId,
-    VIBETREE_DIRECTORY_PATH: scope.cwd,
+    WORKTREEHUB_SCOPE_TYPE: 'directory',
+    WORKTREEHUB_SCOPE_ID: scope.scopeId,
+    WORKTREEHUB_DIRECTORY_PATH: scope.cwd,
   }
 }
 
@@ -96,7 +96,7 @@ function resolveDirectoryScope(cwd: string): DirectoryScope {
   }
 }
 
-import type { TerminalServerMessage } from '@vibetree/shared'
+import type { TerminalServerMessage } from '@worktreehub/shared'
 
 export type TerminalBroadcastEvent = TerminalServerMessage
 

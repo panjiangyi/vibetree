@@ -3,7 +3,7 @@ import { create } from 'zustand'
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
 
-const STORAGE_KEY = 'vibetree.themeMode'
+const STORAGE_KEY = 'worktreehub.themeMode'
 const MEDIA_QUERY = '(prefers-color-scheme: dark)'
 
 let mediaQueryList: MediaQueryList | null = null

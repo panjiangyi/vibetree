@@ -1,5 +1,5 @@
 import { GitBranch, Pencil, Play, Terminal, Trash2 } from 'lucide-react'
-import type { Project, Worktree } from '@vibetree/shared'
+import type { Project, Worktree } from '@worktreehub/shared'
 import { useLayoutStore } from '../../stores/layout.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useUiStore } from '../../stores/ui.store.js'

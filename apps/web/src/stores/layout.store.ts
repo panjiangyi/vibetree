@@ -1,14 +1,14 @@
 import { create } from 'zustand'
 import type { LayoutItem } from 'react-grid-layout'
 import { getCompactor } from 'react-grid-layout/core'
-import type { TerminalSession } from '@vibetree/shared'
+import type { TerminalSession } from '@worktreehub/shared'
 
-const STORAGE_KEY = 'vibetree.gridLayouts.byScope.v1'
-const LEGACY_STORAGE_KEY = 'vibetree.gridLayouts'
-const ACTIVE_SCOPE_KEY = 'vibetree.activeScopeId'
-const LEGACY_ACTIVE_SCOPE_KEY = 'vibetree.activeWorktreeId'
-const MIGRATION_KEY = 'vibetree.gridLayouts.tiled.v1'
-const STORAGE_MIGRATION_KEY = 'vibetree.gridLayouts.byScope.migrated.v1'
+const STORAGE_KEY = 'worktreehub.gridLayouts.byScope.v1'
+const LEGACY_STORAGE_KEY = 'worktreehub.gridLayouts'
+const ACTIVE_SCOPE_KEY = 'worktreehub.activeScopeId'
+const LEGACY_ACTIVE_SCOPE_KEY = 'worktreehub.activeWorktreeId'
+const MIGRATION_KEY = 'worktreehub.gridLayouts.tiled.v1'
+const STORAGE_MIGRATION_KEY = 'worktreehub.gridLayouts.byScope.migrated.v1'
 
 export const GRID_COLS = 12
 export const GRID_ROWS = 12

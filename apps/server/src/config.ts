@@ -29,7 +29,7 @@ export type AppConfig = {
 }
 
 function getDefaultDbPath(): string {
-  return path.join(os.homedir(), '.vibetree', 'vibetree.sqlite')
+  return path.join(os.homedir(), '.worktreehub', 'worktreehub.sqlite')
 }
 
 function getPlatformDefaultShell(): string {
@@ -43,28 +43,28 @@ function getPlatformDefaultShell(): string {
 }
 
 export function getConfig(): AppConfig {
-  const username = process.env.VIBETREE_AUTH_USERNAME?.trim()
-  const password = process.env.VIBETREE_AUTH_PASSWORD ?? ''
+  const username = process.env.WORKTREEHUB_AUTH_USERNAME?.trim()
+  const password = process.env.WORKTREEHUB_AUTH_PASSWORD ?? ''
 
   if (!username || !password) {
-    throw new Error('VIBETREE_AUTH_USERNAME and VIBETREE_AUTH_PASSWORD must be set in the root .env file')
+    throw new Error('WORKTREEHUB_AUTH_USERNAME and WORKTREEHUB_AUTH_PASSWORD must be set in the root .env file')
   }
 
   return {
-    host: process.env.VIBETREE_HOST ?? '127.0.0.1',
-    port: Number(process.env.VIBETREE_PORT ?? 3767),
-    databasePath: process.env.VIBETREE_DB ?? getDefaultDbPath(),
-    trustProxy: process.env.VIBETREE_TRUST_PROXY !== '0',
+    host: process.env.WORKTREEHUB_HOST ?? '127.0.0.1',
+    port: Number(process.env.WORKTREEHUB_PORT ?? 3767),
+    databasePath: process.env.WORKTREEHUB_DB ?? getDefaultDbPath(),
+    trustProxy: process.env.WORKTREEHUB_TRUST_PROXY !== '0',
     defaultShell: getPlatformDefaultShell(),
     auth: {
       username,
       password,
-      sessionTtlMs: Number(process.env.VIBETREE_AUTH_SESSION_TTL_MS ?? 12 * 60 * 60 * 1000),
-      ipFailureLimit: Number(process.env.VIBETREE_AUTH_IP_FAILURE_LIMIT ?? 5),
-      ipWindowMs: Number(process.env.VIBETREE_AUTH_IP_WINDOW_MS ?? 15 * 60 * 1000),
-      globalFailureLimit: Number(process.env.VIBETREE_AUTH_GLOBAL_FAILURE_LIMIT ?? 10),
-      globalCooldownMs: Number(process.env.VIBETREE_AUTH_GLOBAL_COOLDOWN_MS ?? 15 * 60 * 1000),
-      cookieName: 'vibetree_session',
+      sessionTtlMs: Number(process.env.WORKTREEHUB_AUTH_SESSION_TTL_MS ?? 12 * 60 * 60 * 1000),
+      ipFailureLimit: Number(process.env.WORKTREEHUB_AUTH_IP_FAILURE_LIMIT ?? 5),
+      ipWindowMs: Number(process.env.WORKTREEHUB_AUTH_IP_WINDOW_MS ?? 15 * 60 * 1000),
+      globalFailureLimit: Number(process.env.WORKTREEHUB_AUTH_GLOBAL_FAILURE_LIMIT ?? 10),
+      globalCooldownMs: Number(process.env.WORKTREEHUB_AUTH_GLOBAL_COOLDOWN_MS ?? 15 * 60 * 1000),
+      cookieName: 'worktreehub_session',
     },
     terminal: {
       cols: 120,

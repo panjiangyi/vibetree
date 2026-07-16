@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="WorktreeHub 是一个本地优先的 Git worktree 工作台，把多分支开发、真实终端和远程访问放在一个清晰的界面里。">
+  <title>WorktreeHub | 把多分支开发整理成一个工作台</title>
+  <style>
+    :root { --bg:#0b0d0f; --panel:#111519; --panel-2:#171c20; --line:#273038; --text:#eef2f1; --muted:#9aa6a7; --dim:#697678; --green:#9fe870; --green-2:#62c990; --orange:#ffb86b; --max:1120px; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace; line-height:1.6; -webkit-font-smoothing:antialiased; }
+    a { color:inherit; text-decoration:none; }
+    .shell { overflow:hidden; }
+    .container { width:min(calc(100% - 48px),var(--max)); margin:auto; }
+    .site-header { position:sticky; top:0; z-index:10; border-bottom:1px solid rgba(39,48,56,.86); background:rgba(11,13,15,.86); backdrop-filter:blur(14px); }
+    .nav { min-height:68px; display:flex; align-items:center; justify-content:space-between; gap:24px; }
+    .brand { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:700; }
+    .prompt { color:var(--green); }
+    .nav-links { display:flex; gap:24px; color:var(--muted); font-size:12px; }
+    .nav-links a:hover { color:var(--green); }
+    .button { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:0 18px; border:1px solid var(--green); border-radius:6px; color:#101710; background:var(--green); font-size:13px; font-weight:700; transition:transform .2s,background .2s; }
+    .button:hover { transform:translateY(-2px); background:#c2f69e; }
+    .button.ghost { color:var(--text); background:transparent; border-color:var(--line); }
+    .button.ghost:hover { border-color:var(--green); color:var(--green); background:transparent; }
+    .hero { padding:92px 0 80px; background:radial-gradient(circle at 72% 24%,rgba(98,201,144,.12),transparent 30%),linear-gradient(180deg,#101517 0%,var(--bg) 74%); }
+    .eyebrow { display:inline-flex; padding:5px 10px; border:1px solid #315544; border-radius:4px; color:var(--green); background:#122019; font-size:11px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { max-width:820px; margin:22px 0 20px; font-size:clamp(34px,6vw,68px); line-height:1.08; letter-spacing:0; }
+    .hero-copy { max-width:680px; color:var(--muted); font-size:16px; }
+    .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:30px; }
+    .terminal { margin-top:58px; border:1px solid #334139; border-radius:9px; overflow:hidden; background:#0b0f0e; box-shadow:0 28px 80px rgba(0,0,0,.32); }
+    .terminal-bar { display:flex; align-items:center; gap:9px; padding:11px 15px; border-bottom:1px solid #26322c; color:var(--dim); font-size:11px; }
+    .dot { width:9px; height:9px; border-radius:50%; background:#e87563; } .dot:nth-child(2){background:#efbd62}.dot:nth-child(3){background:#75c987}
+    .terminal-body { padding:24px; color:#c7d3cc; font-size:13px; overflow:auto; }
+    .terminal-body div + div { margin-top:5px; }
+    .green { color:var(--green); } .muted { color:var(--muted); } .comment { color:#667871; }
+    .section { padding:96px 0; }
+    .section.alt { border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:#0e1215; }
+    .section-heading { max-width:700px; margin-bottom:38px; }
+    .kicker { margin-bottom:10px; color:var(--green); font-size:11px; text-transform:uppercase; letter-spacing:.12em; }
+    h2 { margin-bottom:12px; font-size:clamp(27px,4vw,42px); line-height:1.2; }
+    .lead { color:var(--muted); font-size:15px; }
+    .benefits { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .benefit,.audience-item { padding:18px; border:1px solid var(--line); border-radius:6px; background:var(--panel); }
+    .benefit strong { display:block; margin-bottom:7px; color:var(--green); font-size:20px; }
+    .benefit span,.audience-item { color:var(--muted); font-size:13px; }
+    .setup-grid,.feature { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+    .setup-list { display:grid; gap:9px; margin:24px 0 0; padding:0; list-style:none; color:var(--muted); font-size:14px; }
+    .setup-list li::before { content:"✓"; display:inline-block; width:26px; color:var(--green); }
+    .code-card { border:1px solid #334139; border-radius:8px; overflow:hidden; background:#0b0f0e; }
+    .code-title { padding:10px 14px; border-bottom:1px solid #26322c; color:var(--dim); font-size:11px; }
+    .code { padding:22px; color:#c7d3cc; font-size:13px; line-height:1.9; overflow:auto; }
+    .features { display:grid; gap:100px; }
+    .feature:nth-child(even) .feature-copy { order:2; }
+    .feature-copy h3 { margin-bottom:12px; font-size:25px; line-height:1.25; }
+    .feature-copy p { color:var(--muted); font-size:14px; }
+    .feature-copy ul { margin:18px 0 0; padding:0; list-style:none; color:var(--muted); font-size:13px; }
+    .feature-copy li { margin:7px 0; } .feature-copy li::before { content:"→"; margin-right:9px; color:var(--green); }
+    .shot { min-width:0; padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--panel-2); }
+    .shot img { display:block; width:100%; height:300px; object-fit:contain; object-position:center; border-radius:3px; background:#090c0e; }
+    .shot.mobile { max-width:340px; width:100%; justify-self:center; }
+    .shot.mobile img { height:480px; }
+    .audience { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+    .audience-item { min-height:96px; display:flex; align-items:center; }
+    .cta { padding:100px 0; border-top:1px solid var(--line); background:#111c17; text-align:center; }
+    .cta-inner { max-width:680px; margin:auto; }
+    .cta h2 { margin-bottom:18px; }
+    .cta p { color:var(--muted); font-size:14px; }
+    footer { padding:28px 0; color:var(--dim); font-size:11px; }
+    @media (max-width:820px) { .nav-links { display:none; } .benefits { grid-template-columns:repeat(2,1fr); } .setup-grid,.feature { grid-template-columns:1fr; gap:34px; } .feature:nth-child(even) .feature-copy { order:0; } .audience { grid-template-columns:repeat(2,1fr); } .section { padding:72px 0; } .features { gap:72px; } }
+    @media (max-width:520px) { .container { width:min(calc(100% - 32px),var(--max)); } .site-header .button { min-height:36px; padding:0 11px; font-size:11px; } .hero { padding:64px 0 55px; } h1 { font-size:39px; } .hero-copy { font-size:14px; } .terminal-body { padding:17px; font-size:11px; } .benefits,.audience { grid-template-columns:1fr; } .benefit { display:flex; gap:14px; align-items:flex-start; } .benefit strong { margin:0; } .shot img { height:220px; } .shot.mobile img { height:420px; } .code { font-size:11px; padding:16px; } }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header class="site-header"><div class="container nav"><a class="brand" href="#top"><span class="prompt">$</span> worktreehub</a><nav class="nav-links"><a href="#setup">setup 脚本</a><a href="#features">功能</a><a href="#compare">为什么更有效</a><a href="#audience">适合谁</a></nav><a class="button" href="https://github.com/panjiangyi/worktreehub" target="_blank" rel="noopener">立即开始</a></div></header>
+  <main id="top">
+    <section class="hero"><div class="container"><span class="eyebrow">本地优先 · 面向并行开发</span><h1>把多分支开发，<br><span class="green">整理成一个真正可用的工作台</span></h1><p class="hero-copy">在一个本地 Web 应用里管理 Git worktree、打开真实终端、保留运行中的会话。少一点反复切分支，少一点窗口混乱，少一点上下文丢失。</p><div class="actions"><a class="button" href="https://github.com/panjiangyi/worktreehub" target="_blank" rel="noopener">从 GitHub 开始</a><a class="button ghost" href="#features">查看功能 ↓</a></div><div class="terminal"><div class="terminal-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>~/projects/checkout-service — worktreehub</span></div><div class="terminal-body"><div><span class="green">$</span> git worktree add ../checkout-fix-42 -b fix/checkout-42</div><div class="comment">Preparing worktree (new branch 'fix/checkout-42')</div><div class="comment">Running project setup script...</div><div class="green">✓ pnpm install</div><div class="green">✓ pnpm run dev — ready on :5173</div><div><span class="green">$</span> <span class="muted">_</span></div></div></div></div></section>
+    <section id="compare" class="section alt"><div class="container"><div class="section-heading"><div class="kicker">为什么更有效</div><h2>不是多开几个终端窗口，<br>而是让每个上下文都有位置</h2><p class="lead">WorktreeHub 把分支、目录、终端和运行状态组织在一起，减少切换带来的认知成本。</p></div><div class="benefits"><div class="benefit"><strong>01</strong><span>每个 worktree 都是独立上下文，不再互相污染。</span></div><div class="benefit"><strong>02</strong><span>页面刷新后，终端会话仍可恢复。</span></div><div class="benefit"><strong>03</strong><span>浏览器断开后，后端任务还能继续运行。</span></div><div class="benefit"><strong>04</strong><span>从浏览器远程重新进入本地开发现场。</span></div></div></div></section>
+    <section id="setup" class="section"><div class="container setup-grid"><div><div class="kicker">核心卖点 / setup script</div><h2>新 worktree 建好，就应该直接进入工作状态</h2><p class="lead">新 worktree 最浪费时间的地方，不是创建目录，而是之后那串重复的初始化：安装依赖、复制环境变量、迁移数据库、启动 dev server。把这些动作写进项目级 setup 脚本，WorktreeHub 会在创建新工作区时自动执行。</p><ul class="setup-list"><li>每个项目一套自己的初始化流程</li><li>新分支创建后自动补齐开发依赖</li><li>减少手动命令，也减少遗漏和环境差异</li><li>从“有一个目录”更快到“可以开始写代码”</li></ul></div><div class="code-card"><div class="code-title">.worktreehub/setup.sh</div><div class="code"><div class="comment"># 创建新 worktree 时自动执行</div><div><span class="green">pnpm</span> install</div><div><span class="green">cp</span> ../main/.env.local .env.local</div><div><span class="green">pnpm</span> run db:migrate</div><div><span class="green">pnpm</span> run dev &amp;</div></div></div></div></section>
+    <section id="features" class="section alt"><div class="container"><div class="section-heading"><div class="kicker">功能一览</div><h2>从项目列表到手机终端，<br>每一步都围绕开发现场</h2><p class="lead">不隐藏真实的 Git 和 Shell，只把它们放到更容易理解、更容易继续工作的界面里。</p></div><div class="features">
+      <article class="feature"><div class="feature-copy"><div class="kicker">01 / 项目上下文</div><h3>把项目和 worktree 放进一个清楚的侧边栏</h3><p>项目、分支、worktree 和状态集中呈现。你不用再靠文件夹命名或终端标题去猜当前上下文。</p></div><div class="shot"><img src="./landing-assets/WorktreeHub-feature-project-sidebar.png" alt="WorktreeHub 项目和 worktree 侧边栏"></div></article>
+      <article class="feature"><div class="feature-copy"><div class="kicker">02 / 快速操作</div><h3>常用动作放在触手可及的位置</h3><p>围绕创建、切换和管理 worktree 的高频动作，减少在多个窗口之间来回寻找。</p></div><div class="shot"><img src="./landing-assets/WorktreeHub-feature-top-actions.png" alt="WorktreeHub 顶部快捷操作"></div></article>
+      <article class="feature"><div class="feature-copy"><div class="kicker">03 / 终端会话</div><h3>一个 worktree，一个明确的终端会话</h3><p>终端标签直接和 worktree 对应。每个工作单元都有清晰归属，切换更直接，出错更少。</p></div><div class="shot"><img src="./landing-assets/WorktreeHub-feature-worktree-tabs.png" alt="WorktreeHub worktree 终端标签"></div></article>
+      <article class="feature"><div class="feature-copy"><div class="kicker">04 / 实时终端</div><h3>真实终端就在浏览器里继续运行</h3><p>不是静态日志，也不是模拟器。你可以进入当前 worktree 的真实 Shell，继续写命令、看输出、跑任务。</p></div><div class="shot"><img src="./landing-assets/WorktreeHub-feature-live-terminal.png" alt="WorktreeHub 实时终端"></div></article>
+      <article class="feature"><div class="feature-copy"><div class="kicker">05 / 远程写代码</div><h3>远程打开网页，继续写代码和盯任务</h3><p>离开工位时，用另一台电脑或手机重新进入本地开发上下文。浏览器刷新不等于任务中断，后台还在跑的构建、测试和脚本都能继续跟进。</p><ul><li>在另一台电脑上接着当前 worktree 工作</li><li>临时离开工位时查看任务进度</li><li>浏览器断开后，后端任务仍可继续</li></ul></div><div class="shot"><img src="./landing-assets/WorktreeHub-feature-remote-web-coding.png" alt="WorktreeHub 远程网页写代码"></div></article>
+      <article class="feature"><div class="feature-copy"><div class="kicker">06 / 移动端入口</div><h3>手机上也能快速回到当前工作现场</h3><p>移动端顶部保留项目入口、终端入口、重连、设置和快捷操作按钮。针对手机宽度重新安排信息和触控区域，不是简单把桌面页面缩小。</p></div><div class="shot mobile"><img src="./landing-assets/WorktreeHub-feature-mobile-header.png" alt="WorktreeHub 移动端顶部入口"></div></article>
+      <article class="feature"><div class="feature-copy"><div class="kicker">07 / 移动终端</div><h3>手机上继续看终端，跟着任务往下走</h3><p>长时间构建、测试、脚本执行时，不必回到电脑前才能知道进度。终端内容保持清晰，当前任务一眼可见。</p></div><div class="shot mobile"><img src="./landing-assets/WorktreeHub-feature-mobile-terminal.png" alt="WorktreeHub 移动端终端"></div></article>
+      <article class="feature"><div class="feature-copy"><div class="kicker">08 / 快捷操作</div><h3>方向键、Tab、Esc、Enter 和 Ctrl+C 都在手边</h3><p>移动端提供针对手机操作优化的快捷按钮：补输入、移动光标、发送命令、打断任务，不需要在狭窄的虚拟键盘里反复切换。</p></div><div class="shot mobile"><img src="./landing-assets/WorktreeHub-feature-mobile-controls.png" alt="WorktreeHub 移动端快捷操作按钮"></div></article>
+    </div></div></section>
+    <section id="audience" class="section"><div class="container"><div class="section-heading"><div class="kicker">适合谁</div><h2>给需要同时推进多件事的人</h2></div><div class="audience"><div class="audience-item">经常同时处理多个分支的工程师</div><div class="audience-item">已经在用 git worktree，但嫌原生方式太散的人</div><div class="audience-item">不想再被终端窗口和路径切换拖慢的人</div><div class="audience-item">独立开发者、全栈工程师、终端重度用户</div><div class="audience-item">需要稳定多上下文工作流的 AI coding 用户</div></div></div></section>
+    <section class="cta"><div class="container cta-inner"><div class="kicker">把开发现场整理好</div><h2>少一点切换成本，<br>多一点真正的推进。</h2><p>WorktreeHub 不替你开发，它让每一个分支、终端和正在运行的任务都更容易被找到、被继续。</p><div class="actions" style="justify-content:center"><a class="button" href="https://github.com/panjiangyi/worktreehub" target="_blank" rel="noopener">查看 GitHub</a></div></div></section>
+  </main>
+  <footer><div class="container">© 2026 WorktreeHub · 本地优先的 Git worktree 工作台</div></footer>
+</div>
+</body>
+</html>

@@ -1,5 +1,5 @@
 {
-  "name": "vibetree",
+  "name": "worktreehub",
   "private": true,
   "version": "0.1.0",
   "description": "Local Git worktree manager with web-based terminals",
@@ -9,17 +9,17 @@
   },
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "dev:web": "pnpm --filter @vibetree/web dev",
-    "dev:server": "pnpm --filter @vibetree/server dev",
+    "dev:web": "pnpm --filter @worktreehub/web dev",
+    "dev:server": "pnpm --filter @worktreehub/server dev",
     "build": "pnpm -r build",
     "build-and-start": "bash build-and-start.sh",
-    "build:shared": "pnpm --filter @vibetree/shared build",
-    "build:web": "pnpm --filter @vibetree/web build",
-    "build:server": "pnpm --filter @vibetree/server build",
+    "build:shared": "pnpm --filter @worktreehub/shared build",
+    "build:web": "pnpm --filter @worktreehub/web build",
+    "build:server": "pnpm --filter @worktreehub/server build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
-    "test:e2e": "pnpm --filter @vibetree/server test:e2e"
+    "test:e2e": "pnpm --filter @worktreehub/server test:e2e"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -24,7 +24,7 @@ function createConfig(rootPath: string): AppConfig {
       ipWindowMs: 15 * 60 * 1000,
       globalFailureLimit: 10,
       globalCooldownMs: 15 * 60 * 1000,
-      cookieName: 'vibetree_session',
+      cookieName: 'worktreehub_session',
     },
     terminal: {
       cols: 120,
@@ -35,7 +35,7 @@ function createConfig(rootPath: string): AppConfig {
 }
 
 async function createTestApp() {
-  const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'vibetree-auth-test-'))
+  const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'worktreehub-auth-test-'))
   tempDirs.push(rootPath)
   const app = await buildApp(createConfig(rootPath))
   return app
@@ -92,7 +92,7 @@ describe('app auth', () => {
       method: 'GET',
       url: '/api/auth/session',
       cookies: {
-        vibetree_session: cookie.split('=')[1],
+        worktreehub_session: cookie.split('=')[1],
       },
     })
 
@@ -106,7 +106,7 @@ describe('app auth', () => {
       method: 'GET',
       url: '/api/projects',
       cookies: {
-        vibetree_session: cookie.split('=')[1],
+        worktreehub_session: cookie.split('=')[1],
       },
     })
     expect(projects.statusCode).toBe(200)
@@ -230,7 +230,7 @@ describe('app auth', () => {
         'content-type': 'application/json',
       },
       cookies: {
-        vibetree_session: cookie.split('=')[1],
+        worktreehub_session: cookie.split('=')[1],
       },
       payload: {},
     })
@@ -242,7 +242,7 @@ describe('app auth', () => {
       method: 'GET',
       url: '/api/auth/session',
       cookies: {
-        vibetree_session: cookie.split('=')[1],
+        worktreehub_session: cookie.split('=')[1],
       },
     })
 

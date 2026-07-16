@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3'
-import type { Project, UpdateProjectInput } from '@vibetree/shared'
+import type { Project, UpdateProjectInput } from '@worktreehub/shared'
 
 type ProjectRow = {
   id: string

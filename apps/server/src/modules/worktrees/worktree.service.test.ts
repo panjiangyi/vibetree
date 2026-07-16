@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { execa } from 'execa'
-import type { Project } from '@vibetree/shared'
+import type { Project } from '@worktreehub/shared'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createDatabase } from '../../db/database.js'
 import { createProjectRepository } from '../../db/repositories/project.repository.js'
@@ -36,7 +36,7 @@ async function commitFile(repoPath: string, name: string, content: string, messa
 }
 
 async function createRepo(): Promise<TestContext> {
-  const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'vibetree-worktree-test-'))
+  const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'worktreehub-worktree-test-'))
   tempDirs.push(rootPath)
 
   const repoPath = path.join(rootPath, 'repo')

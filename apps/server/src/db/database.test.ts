@@ -14,7 +14,7 @@ afterEach(async () => {
 
 describe('createDatabase', () => {
   it('migrates legacy terminal_sessions before creating scoped indexes', async () => {
-    const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'vibetree-db-test-'))
+    const rootPath = await fs.mkdtemp(path.join(os.tmpdir(), 'worktreehub-db-test-'))
     tempDirs.push(rootPath)
     const databasePath = path.join(rootPath, 'app.db')
     const legacyDb = new Database(databasePath)

@@ -1,4 +1,4 @@
-import type { TerminalClientMessage, TerminalServerMessage } from '@vibetree/shared'
+import type { TerminalClientMessage, TerminalServerMessage } from '@worktreehub/shared'
 import { getApiBase } from '../api/client.js'
 
 type Listener = (message: TerminalServerMessage) => void

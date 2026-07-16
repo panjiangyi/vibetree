@@ -6,7 +6,7 @@ import type {
   UpdateWorktreeInput,
   CheckMergeInput,
   MergeCheckResult,
-} from '@vibetree/shared'
+} from '@worktreehub/shared'
 import * as git from '../git/git.service.js'
 import { assertPathInside, normalizePath } from '../security/path-safety.js'
 import {

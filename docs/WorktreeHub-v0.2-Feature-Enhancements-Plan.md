@@ -1,8 +1,8 @@
-# VibeTree v0.2 功能增强方案
+# WorktreeHub v0.2 功能增强方案
 
 ## Context
 
-VibeTree 是一个本地 git worktree + 终端管理 Web App（pnpm monorepo：`packages/shared` 共享类型、`apps/server` Fastify 后端 + SQLite、`apps/web` React19 + Vite + Tailwind + Zustand + xterm.js）。
+WorktreeHub 是一个本地 git worktree + 终端管理 Web App（pnpm monorepo：`packages/shared` 共享类型、`apps/server` Fastify 后端 + SQLite、`apps/web` React19 + Vite + Tailwind + Zustand + xterm.js）。
 
 用户在实际使用中遇到 6 个痛点，需要补齐：
 

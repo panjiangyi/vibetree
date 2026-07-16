@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import type { Worktree } from '@vibetree/shared'
+import type { Worktree } from '@worktreehub/shared'
 import { useProjectStore } from '../../stores/project.store.js'
 import { useUiStore } from '../../stores/ui.store.js'
 
