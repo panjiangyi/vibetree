@@ -169,3 +169,46 @@ export type ApiErrorPayload = {
     message: string
   }
 }
+
+export type AgentCapability = 'streaming' | 'resume' | 'images' | 'questions' | 'approvals'
+
+export type AgentDefinition = {
+  id: string
+  name: string
+  kind: 'builtin' | 'command'
+  executable: string
+  enabled: boolean
+  capabilities: AgentCapability[]
+  config: Record<string, unknown>
+}
+
+export type WeixinIntegrationStatus = {
+  enabled: boolean
+  configured: boolean
+  connected: boolean
+  accountId: string | null
+  accountLabel: string | null
+  pollerState: string | null
+  owner: { userId: string; displayName: string | null } | null
+  pairing: { code: string; expiresAt: string } | null
+  activeProjectId: string | null
+  activeWorktreeId: string | null
+  activeAgentId: string
+  agents: AgentDefinition[]
+  currentTask: CodingTaskSummary | null
+  lastError: string | null
+}
+
+export type CodingTaskStatus = 'queued' | 'running' | 'waiting' | 'completed' | 'failed' | 'cancelled'
+
+export type CodingTaskSummary = {
+  id: string
+  status: CodingTaskStatus
+  prompt: string
+  summary: string | null
+  error: string | null
+  worktreeId: string
+  agentId: string
+  createdAt: string
+  completedAt: string | null
+}

@@ -20,6 +20,9 @@ function ensureIndexes(db: Database.Database): void {
   db.exec('CREATE INDEX IF NOT EXISTS idx_terminal_sessions_worktree_id ON terminal_sessions(worktree_id)')
   db.exec('CREATE INDEX IF NOT EXISTS idx_terminal_sessions_scope_id ON terminal_sessions(scope_id)')
   db.exec('CREATE INDEX IF NOT EXISTS idx_terminal_sessions_status ON terminal_sessions(status)')
+  db.exec('CREATE INDEX IF NOT EXISTS idx_coding_tasks_status ON coding_tasks(status)')
+  db.exec('CREATE INDEX IF NOT EXISTS idx_coding_tasks_session ON coding_tasks(session_id, created_at)')
+  db.exec('CREATE INDEX IF NOT EXISTS idx_weixin_outbox_pending ON weixin_outbox(status, next_attempt_at)')
 }
 
 function migrateTerminalSessionsToScopedModel(db: Database.Database): void {

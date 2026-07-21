@@ -8,11 +8,14 @@ import { createDatabase } from './db/database.js'
 import { createProjectRepository } from './db/repositories/project.repository.js'
 import { createWorktreeRepository } from './db/repositories/worktree.repository.js'
 import { createTerminalRepository } from './db/repositories/terminal.repository.js'
+import { createWeixinRepository } from './db/repositories/weixin.repository.js'
 import { createProjectService } from './modules/projects/project.service.js'
 import { createWorktreeService } from './modules/worktrees/worktree.service.js'
 import { createTerminalService } from './modules/terminals/terminal.service.js'
 import { createAuthService } from './modules/auth/auth.service.js'
 import { createPtyManager } from './modules/pty/pty.manager.js'
+import { createAgentRegistry } from './modules/agents/agent.registry.js'
+import { createWeixinService } from './modules/weixin/weixin.service.js'
 import { createFsService } from './modules/fs/fs.service.js'
 import { registerAuthRoutes } from './routes/auth.routes.js'
 import { registerHealthRoutes } from './routes/health.routes.js'
@@ -21,6 +24,7 @@ import { registerWorktreeRoutes } from './routes/worktrees.routes.js'
 import { registerTerminalRoutes } from './routes/terminals.routes.js'
 import { registerFsRoutes } from './routes/fs.routes.js'
 import { registerDebugRoutes } from './routes/debug.routes.js'
+import { registerWeixinRoutes } from './routes/weixin.routes.js'
 import { registerTerminalWebSocket } from './websocket/terminal.ws.js'
 import { AppError } from './utils/app-error.js'
 import { normalizeAbsoluteRequestUrl } from './utils/request-url.js'
@@ -38,6 +42,7 @@ export async function buildApp(config: AppConfig) {
   const projectRepo = createProjectRepository(db)
   const worktreeRepo = createWorktreeRepository(db)
   const terminalRepo = createTerminalRepository(db)
+  const weixinRepo = createWeixinRepository(db)
 
   // Initialize PTY manager
   const ptyManager = createPtyManager()
@@ -57,6 +62,16 @@ export async function buildApp(config: AppConfig) {
     terminalRepo,
     worktreeService.syncProjectWorktrees.bind(worktreeService)
   )
+  const agentRegistry = createAgentRegistry(weixinRepo)
+  const weixinService = createWeixinService({
+    config,
+    repo: weixinRepo,
+    projectRepo,
+    worktreeRepo,
+    projectService,
+    worktreeService,
+    agents: agentRegistry,
+  })
   const fsService = createFsService()
   const authService = createAuthService(config)
 
@@ -132,7 +147,14 @@ export async function buildApp(config: AppConfig) {
   await registerTerminalRoutes(app, terminalService)
   await registerFsRoutes(app, fsService)
   await registerDebugRoutes(app)
+  await registerWeixinRoutes(app, weixinService)
   registerTerminalWebSocket(app, terminalService, ptyManager, authService)
+
+  weixinService.start()
+  app.addHook('onClose', async () => {
+    weixinService.stop()
+    db.close()
+  })
 
   // Serve static files in production
   const webDistPath = path.resolve(import.meta.dirname, '../../web/dist')
