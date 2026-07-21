@@ -10,13 +10,21 @@ if [ -s "${HOME}/.nvm/nvm.sh" ]; then
   set -u
 fi
 
-# Bind to all interfaces so the server is reachable from other devices on the WLAN.
+# ---- Ports ------------------------------------------------------------------
+# Bind to all interfaces so the apps are reachable from other devices on the WLAN.
 export WORKTREEHUB_HOST="${WORKTREEHUB_HOST:-0.0.0.0}"
-PORT="${WORKTREEHUB_PORT:-3767}"
+WORKTREEHUB_PORT="${WORKTREEHUB_PORT:-3767}"
+WORKTREEHUB_WEB_PORT="${WORKTREEHUB_WEB_PORT:-4173}"
+export WEIXIN_BOT_HOST="${WEIXIN_BOT_HOST:-0.0.0.0}"
+export WEIXIN_BOT_PORT="${WEIXIN_BOT_PORT:-3000}"
+
+LOG_DIR="${LOG_DIR:-$(pwd)/logs}"
+mkdir -p "$LOG_DIR"
 
 # Best-effort detection of this machine's LAN IP for a convenient connect URL.
 lan_ip="$(node -e "const os=require('node:os'); for (const entries of Object.values(os.networkInterfaces())) for (const item of entries ?? []) if (item.family === 'IPv4' && !item.internal) { console.log(item.address); process.exit(0) }" 2>/dev/null || true)"
 
+# ---- Build all three apps ---------------------------------------------------
 pnpm build
 
 echo "Running database migrations..."
@@ -31,11 +39,49 @@ db.close()
 console.log(`Database migrated at ${config.databasePath}`)
 EOF
 
+# ---- Start all three apps in the background ---------------------------------
 echo
-echo "WorktreeHub server binding to ${WORKTREEHUB_HOST}:${PORT}"
+echo "Starting all services (logs in $LOG_DIR)..."
+
+pnpm --filter @worktreehub/server start \
+  >"$LOG_DIR/server.log" 2>&1 &
+SERVER_PID=$!
+
+pnpm --filter @worktreehub/web preview -- --host "$WORKTREEHUB_HOST" --port "$WORKTREEHUB_WEB_PORT" \
+  >"$LOG_DIR/web.log" 2>&1 &
+WEB_PID=$!
+
+PORT="$WEIXIN_BOT_PORT" pnpm --filter @worktreehub/weixin-bot start \
+  >"$LOG_DIR/weixin-bot.log" 2>&1 &
+WEIXIN_PID=$!
+
+cleanup() {
+  echo
+  echo "Stopping all services..."
+  kill "$SERVER_PID" "$WEB_PID" "$WEIXIN_PID" 2>/dev/null || true
+  wait 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+# ---- Summary ---------------------------------------------------------------
+echo
+echo "WorktreeHub server    → http://${WORKTREEHUB_HOST}:${WORKTREEHUB_PORT}"
+echo "WorktreeHub web       → http://${WORKTREEHUB_HOST}:${WORKTREEHUB_WEB_PORT}"
+echo "Weixin bot service    → http://${WEIXIN_BOT_HOST}:${WEIXIN_BOT_PORT}"
 if [ -n "${lan_ip:-}" ]; then
-  echo "Connect from other devices on the WLAN at: http://${lan_ip}:${PORT}"
+  echo
+  echo "From other devices on the WLAN:"
+  echo "  server    → http://${lan_ip}:${WORKTREEHUB_PORT}"
+  echo "  web       → http://${lan_ip}:${WORKTREEHUB_WEB_PORT}"
+  echo "  weixin    → http://${lan_ip}:${WEIXIN_BOT_PORT}"
 fi
 echo
+echo "Logs:"
+echo "  tail -f $LOG_DIR/server.log"
+echo "  tail -f $LOG_DIR/web.log"
+echo "  tail -f $LOG_DIR/weixin-bot.log"
+echo
+echo "Press Ctrl-C to stop all services."
 
-pnpm --filter @worktreehub/server start
+# Block until the script is interrupted (the EXIT trap kills the children).
+wait
