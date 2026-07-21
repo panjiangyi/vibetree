@@ -42,3 +42,8 @@ tmp/
 temp/
 .claude/
 .omo/
+
+# weixin-bot runtime state
+sessions/
+*.messages.db
+apps/weixin-bot/media/
