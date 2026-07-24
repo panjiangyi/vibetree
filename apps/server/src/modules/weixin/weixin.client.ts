@@ -30,13 +30,31 @@ export class WeixinClient {
     return `/accounts/${encodeURIComponent(this.config.accountId)}${path}`
   }
 
+  async health(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.config.baseUrl}/health`, {
+        signal: AbortSignal.timeout(5_000),
+      })
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
   async status(): Promise<{ connected: boolean; account: AccountSummary | null }> {
+    const connected = await this.health()
+    if (!connected) return { connected: false, account: null }
+
+    if (!this.config.apiKey) {
+      return { connected: true, account: null }
+    }
+
     try {
       const response = await this.request('/accounts')
       const body = await response.json() as { accounts: AccountSummary[] }
       return { connected: true, account: body.accounts.find((account) => account.id === this.config.accountId) ?? null }
     } catch {
-      return { connected: false, account: null }
+      return { connected: true, account: null }
     }
   }
 

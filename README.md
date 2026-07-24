@@ -133,17 +133,18 @@ worktree 终端和目录终端由后端的长期 `node-pty` 会话提供。浏�
 | `WORKTREEHUB_AUTH_GLOBAL_FAILURE_LIMIT` | `10` | 全局登录失败次数限制 |
 | `WORKTREEHUB_AUTH_GLOBAL_COOLDOWN_MS` | `900000` | 触发全局限制后的冷却时间，单位为毫秒 |
 | `WORKTREEHUB_WEIXIN_ENABLED` | `0` | 设为 `1` 启用微信编码集成 |
-| `WORKTREEHUB_WEIXIN_BASE_URL` | `http://127.0.0.1:3000` | 独立 `weixin-bot-service` 地址 |
+| `WORKTREEHUB_WEIXIN_PORT` | `3000` | 内置 `weixin-bot-service` 监听端口 |
+| `WORKTREEHUB_WEIXIN_BASE_URL` | `http://127.0.0.1:3000` | WorktreeHub 访问 sidecar 的地址 |
 | `WORKTREEHUB_WEIXIN_API_KEY` | 无 | 微信 sidecar 的 API key |
 | `WORKTREEHUB_WEIXIN_ACCOUNT_ID` | 无 | 用于编码消息的 bot account id |
-| `WORKTREEHUB_WEIXIN_SERVICE_ENV` | 无 | 可选：读取 sidecar `.env` 中的 `API_KEY` 和 `PORT`，避免复制密钥 |
+| `WORKTREEHUB_WEIXIN_STATE_DIR` | `~/.openclaw-poc` | sidecar 会话、历史消息和媒体文件目录 |
 
 ## 微信编码
 
 WorktreeHub 可以通过独立运行的 `weixin-bot-service` 接收微信文本和图片，并把任务交给 Codex、Claude Code、OpenCode 或自定义命令 driver。原始终端不会转发到微信；机器人只发送任务确认、阶段进度、问题和整理后的结果。
 
 1. 启动并登录 `weixin-bot-service`。
-2. 在 WorktreeHub `.env` 中配置上述四个微信变量并重启。
+2. 在 WorktreeHub 根目录 `.env` 中配置微信变量并重启。`server` 和 `weixin-bot-service` 现在共用这一份配置。
 3. 打开 Settings，确认 Sidecar 为 Connected，点击 Pair owner。
 4. 将八位配对码发送给微信 bot，然后按编号选择项目和 worktree。
 
