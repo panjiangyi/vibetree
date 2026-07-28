@@ -64,7 +64,7 @@ export function getConfig(): AppConfig {
   const weixinServiceEnv = weixinServiceEnvPath
     ? parseDotEnv(fs.readFileSync(weixinServiceEnvPath, 'utf8'))
     : {}
-  const weixinPort = weixinServiceEnv.PORT || '3000'
+  const weixinPort = weixinServiceEnv.PORT || '47890'
 
   return {
     host: process.env.WORKTREEHUB_HOST ?? '127.0.0.1',

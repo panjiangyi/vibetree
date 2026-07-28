@@ -39,7 +39,7 @@ export function loadConfig(): Config {
     || path.join(stateDir, "session.json")
 
   return {
-    port: parseIntEnv(process.env.WORKTREEHUB_WEIXIN_PORT ?? process.env.PORT, 3000),
+    port: parseIntEnv(process.env.WORKTREEHUB_WEIXIN_PORT ?? process.env.PORT, 47890),
     apiKey,
     stateDir,
     sessionFile,

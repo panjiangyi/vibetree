@@ -9,7 +9,7 @@ The connection model is **bot subscription, not account hijack**: a user scans a
 QR once to subscribe to the bot, and from then on they can exchange messages with
 it. Your programs talk to this service; this service talks to WeChat.
 
-- Base URL (default): `http://localhost:3000`
+- Base URL (default): `http://localhost:47890`
 - Content type: `application/json` (except media upload, which is `multipart/form-data`)
 - One shared API key guards every endpoint (see [Authentication](#authentication)).
 - **One instance can serve many WeChat accounts** at once (see [Accounts](#accounts)).
@@ -257,7 +257,7 @@ separate message before the media). The MIME type is sniffed from the bytes (the
 the filename) and mapped to image / video / file automatically.
 
 ```bash
-curl -X POST http://localhost:3000/send/media \
+curl -X POST http://localhost:47890/send/media \
   -H "X-API-Key: $API_KEY" \
   -F "to=o9cq…@im.wechat" \
   -F "caption=here you go" \
@@ -420,7 +420,7 @@ A minimal echo bot: receive via webhook, reply via `/send`.
 import express from "express";
 import crypto from "node:crypto";
 
-const BASE = "http://localhost:3000";
+const BASE = "http://localhost:47890";
 const API_KEY = process.env.API_KEY;
 const HOOK_SECRET = process.env.HOOK_SECRET;
 
@@ -479,7 +479,7 @@ All via environment (see `.env.example`):
 
 | Var | Default | Meaning |
 |---|---|---|
-| `PORT` | `3000` | HTTP port |
+| `PORT` | `47890` | HTTP port |
 | `API_KEY` | — | **Required.** Shared key for all endpoints |
 | `WEIXIN_STATE_DIR` | `~/.openclaw-poc` | State dir (`sessions/`, tokens, SQLite history, media) |
 | `WEIXIN_SESSION_FILE` | `<state>/session.json` | Legacy single-session file, migrated into `sessions/` on first boot |

@@ -133,8 +133,8 @@ worktree 终端和目录终端由后端的长期 `node-pty` 会话提供。浏�
 | `WORKTREEHUB_AUTH_GLOBAL_FAILURE_LIMIT` | `10` | 全局登录失败次数限制 |
 | `WORKTREEHUB_AUTH_GLOBAL_COOLDOWN_MS` | `900000` | 触发全局限制后的冷却时间，单位为毫秒 |
 | `WORKTREEHUB_WEIXIN_ENABLED` | `0` | 设为 `1` 启用微信编码集成 |
-| `WORKTREEHUB_WEIXIN_PORT` | `3000` | 内置 `weixin-bot-service` 监听端口 |
-| `WORKTREEHUB_WEIXIN_BASE_URL` | `http://127.0.0.1:3000` | WorktreeHub 访问 sidecar 的地址 |
+| `WORKTREEHUB_WEIXIN_PORT` | `47890` | 内置 `weixin-bot-service` 监听端口 |
+| `WORKTREEHUB_WEIXIN_BASE_URL` | `http://127.0.0.1:47890` | WorktreeHub 访问 sidecar 的地址 |
 | `WORKTREEHUB_WEIXIN_API_KEY` | 无 | 微信 sidecar 的 API key |
 | `WORKTREEHUB_WEIXIN_ACCOUNT_ID` | 无 | 用于编码消息的 bot account id |
 | `WORKTREEHUB_WEIXIN_STATE_DIR` | `~/.openclaw-poc` | sidecar 会话、历史消息和媒体文件目录 |
