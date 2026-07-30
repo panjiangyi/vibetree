@@ -15,7 +15,7 @@ type WorktreeRepo = ReturnType<typeof createWorktreeRepository>
 type TerminalRepo = ReturnType<typeof createTerminalRepository>
 
 function defaultWorktreeBasePath(projectName: string): string {
-  return path.join(os.homedir(), '.worktree', projectName)
+  return path.join(os.homedir(), '.worktrees', projectName)
 }
 
 export type ProjectService = ReturnType<typeof createProjectService>

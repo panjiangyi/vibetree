@@ -16,6 +16,17 @@ const CLIPBOARD_IMAGE_EXTENSIONS: Record<string, string> = {
   'image/webp': 'webp',
   'image/gif': 'gif',
 }
+const MIN_TERMINAL_COLS = 20
+const MIN_TERMINAL_ROWS = 5
+const MAX_TERMINAL_COLS = 500
+const MAX_TERMINAL_ROWS = 200
+
+function normalizeTerminalSize(cols: number, rows: number): { cols: number; rows: number } {
+  return {
+    cols: Math.min(MAX_TERMINAL_COLS, Math.max(MIN_TERMINAL_COLS, Math.floor(cols))),
+    rows: Math.min(MAX_TERMINAL_ROWS, Math.max(MIN_TERMINAL_ROWS, Math.floor(rows))),
+  }
+}
 
 function sanitizePathSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'terminal'
@@ -96,7 +107,8 @@ export function registerTerminalWebSocket(
               return
             }
             ptyManager.attachClient(message.terminalId, ws)
-            ptyManager.resize(message.terminalId, message.cols, message.rows)
+            const normalizedSize = normalizeTerminalSize(message.cols, message.rows)
+            ptyManager.resize(message.terminalId, normalizedSize.cols, normalizedSize.rows)
 
             sendWs(ws, {
               type: 'attached',
@@ -138,7 +150,8 @@ export function registerTerminalWebSocket(
           }
 
           case 'resize': {
-            ptyManager.resize(message.terminalId, message.cols, message.rows)
+            const normalizedSize = normalizeTerminalSize(message.cols, message.rows)
+            ptyManager.resize(message.terminalId, normalizedSize.cols, normalizedSize.rows)
             break
           }
 

@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
 type TableInfoRow = {
@@ -120,6 +121,33 @@ function migrateTerminalSessionsToScopedModel(db: Database.Database): void {
   }
 }
 
+function migrateDefaultWorktreeBasePaths(db: Database.Database): void {
+  const projects = db
+    .prepare('SELECT id, name, worktree_base_path FROM projects')
+    .all() as Array<{ id: string; name: string; worktree_base_path: string }>
+
+  const oldBaseDir = path.join(os.homedir(), '.worktree')
+  const newBaseDir = path.join(os.homedir(), '.worktrees')
+  const updateStmt = db.prepare(
+    'UPDATE projects SET worktree_base_path = ?, updated_at = ? WHERE id = ?'
+  )
+  const now = new Date().toISOString()
+
+  db.exec('BEGIN')
+  try {
+    for (const project of projects) {
+      const legacyBasePath = path.join(oldBaseDir, project.name)
+      if (project.worktree_base_path !== legacyBasePath) continue
+
+      updateStmt.run(path.join(newBaseDir, project.name), now, project.id)
+    }
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
+  }
+}
+
 function runMigrations(db: Database.Database): void {
   const projectCols = getColumnNames(db, 'projects')
   if (!projectCols.has('main_branch')) {
@@ -138,6 +166,7 @@ function runMigrations(db: Database.Database): void {
   }
 
   migrateTerminalSessionsToScopedModel(db)
+  migrateDefaultWorktreeBasePaths(db)
 }
 
 export function createDatabase(databasePath: string): Database.Database {

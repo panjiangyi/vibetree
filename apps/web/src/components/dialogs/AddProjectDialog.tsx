@@ -126,7 +126,7 @@ export function AddProjectDialog() {
             </div>
 
             <p className="text-xs app-subtle">
-              Worktrees will be created at: <code className="app-muted">~/.worktree/[project-name]/[branch]</code>
+              Worktrees will be created at: <code className="app-muted">~/.worktrees/[project-name]/[branch]</code>
             </p>
 
             {error && (

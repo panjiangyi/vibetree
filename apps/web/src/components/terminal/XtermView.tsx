@@ -48,6 +48,15 @@ const TOUCH_TAP_MOVE_THRESHOLD_PX = 8
 const USER_SCROLL_IDLE_MS = 150
 const VOICE_FINALIZATION_IDLE_MS = 1200
 const VOICE_INPUT_DRAIN_MS = 1800
+const MIN_ATTACH_COLS = 20
+const MIN_ATTACH_ROWS = 5
+const MIN_FIT_WIDTH_PX = 120
+const MIN_FIT_HEIGHT_PX = 80
+
+type TerminalGeometry = {
+  cols: number
+  rows: number
+}
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -590,13 +599,31 @@ export function XtermView({
       nativeTouchScrollLayer.refresh()
     }
 
-    const attachTerminal = () => {
+    const fitAndReadGeometry = (): TerminalGeometry | null => {
+      const rect = container.getBoundingClientRect()
+      if (rect.width < MIN_FIT_WIDTH_PX || rect.height < MIN_FIT_HEIGHT_PX) {
+        return null
+      }
+
       fitAddon.fit()
+      if (term.cols < MIN_ATTACH_COLS || term.rows < MIN_ATTACH_ROWS) {
+        return null
+      }
+
+      return { cols: term.cols, rows: term.rows }
+    }
+
+    let terminalAttached = false
+    const attachTerminal = (): boolean => {
+      const geometry = fitAndReadGeometry()
+      if (!geometry) return false
+
+      terminalAttached = true
       terminalSocket.attach({
         terminalId,
-        cols: term.cols,
-        rows: term.rows,
+        ...geometry,
       })
+      return true
     }
 
     let resizeFrameId: number | null = null
@@ -611,12 +638,23 @@ export function XtermView({
         const shouldScroll = scrollAfterResize
         scrollAfterResize = false
 
-        fitAddon.fit()
-        terminalSocket.resize({
-          terminalId,
-          cols: term.cols,
-          rows: term.rows,
-        })
+        const geometry = fitAndReadGeometry()
+        if (!geometry) {
+          return
+        }
+
+        if (terminalAttached) {
+          terminalSocket.resize({
+            terminalId,
+            ...geometry,
+          })
+        } else {
+          terminalAttached = true
+          terminalSocket.attach({
+            terminalId,
+            ...geometry,
+          })
+        }
 
         if (shouldScroll) {
           requestAnimationFrame(scrollToBottom)
@@ -645,8 +683,9 @@ export function XtermView({
 
     let initialAttachFrameId: number | null = requestAnimationFrame(() => {
       initialAttachFrameId = null
-      attachTerminal()
-      requestAnimationFrame(scrollToBottom)
+      if (attachTerminal()) {
+        requestAnimationFrame(scrollToBottom)
+      }
     })
 
     const textarea = term.textarea
@@ -1459,8 +1498,10 @@ export function XtermView({
       }
     })
     const unsubscribeReconnect = terminalSocket.onReconnect(() => {
-      attachTerminal()
-      requestAnimationFrame(scrollToBottom)
+      terminalAttached = false
+      if (attachTerminal()) {
+        requestAnimationFrame(scrollToBottom)
+      }
     })
 
     const keepMobileKeyboardOpen = shouldUseNativeTouchScrollLayer()

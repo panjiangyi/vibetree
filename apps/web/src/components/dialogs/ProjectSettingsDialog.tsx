@@ -112,7 +112,7 @@ export function ProjectSettingsDialog() {
           </div>
 
           <p className="text-xs app-subtle">
-            Worktrees are stored at: <code className="app-muted">~/.worktree/{project.name}/[branch]</code>
+            Worktrees are stored at: <code className="app-muted">~/.worktrees/{project.name}/[branch]</code>
           </p>
 
           <div className="border-t border-[var(--color-border)] pt-4 flex items-center justify-between gap-3">
