@@ -18,7 +18,7 @@
     "@fastify/static": "^9.1.3",
     "@fastify/websocket": "^11.0.2",
     "@worktreehub/shared": "workspace:*",
-    "better-sqlite3": "^11.9.1",
+    "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
     "execa": "^9.5.2",
     "fastify": "^5.3.3",

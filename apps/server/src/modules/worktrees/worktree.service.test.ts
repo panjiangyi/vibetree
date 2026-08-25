@@ -149,3 +149,35 @@ describe('worktree merge guards', () => {
     db.close()
   })
 })
+
+describe('worktree archiving', () => {
+  it('preserves the archived state when worktrees are synced from git', async () => {
+    const ctx = await createRepo()
+    await git(ctx.repoPath, [
+      'worktree',
+      'add',
+      '-q',
+      '-b',
+      'stale-feature',
+      path.join(ctx.worktreeBasePath, 'stale-feature'),
+      'main',
+    ])
+
+    const { db, service } = await createService(ctx)
+    await service.syncProjectWorktrees('proj_test')
+    const worktree = (await service.listWorktrees('proj_test')).find(
+      (wt) => wt.branch === 'stale-feature'
+    )
+
+    expect(worktree?.isArchived).toBe(false)
+    expect(service.updateWorktree(worktree!.id, { isArchived: true }).isArchived).toBe(true)
+
+    await service.syncProjectWorktrees('proj_test')
+    const archived = (await service.listWorktrees('proj_test')).find(
+      (wt) => wt.id === worktree!.id
+    )
+    expect(archived?.isArchived).toBe(true)
+
+    db.close()
+  })
+})

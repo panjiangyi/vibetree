@@ -79,6 +79,9 @@ describe('createDatabase', () => {
     expect(columnNames.has('scope_label')).toBe(true)
     expect(indexNames.has('idx_terminal_sessions_scope_id')).toBe(true)
 
+    const worktreeColumns = db.prepare('PRAGMA table_info(worktrees)').all() as Array<{ name: string }>
+    expect(worktreeColumns.some((column) => column.name === 'is_archived')).toBe(true)
+
     db.close()
   })
 })

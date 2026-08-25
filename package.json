@@ -5,7 +5,7 @@
   "description": "Local Git worktree manager with web-based terminals",
   "packageManager": "pnpm@10.30.3",
   "engines": {
-    "node": ">=22"
+    "node": ">=25"
   },
   "scripts": {
     "dev": "pnpm -r --parallel dev",

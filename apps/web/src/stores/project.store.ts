@@ -19,6 +19,7 @@ type ProjectStore = {
   listBranches: (projectId: string) => Promise<{ local: string[]; remote: string[] }>
   createWorktree: (projectId: string, input: CreateWorktreeInput) => Promise<Worktree>
   updateWorktreeAlias: (worktreeId: string, input: UpdateWorktreeInput) => Promise<Worktree>
+  setWorktreeArchived: (worktreeId: string, isArchived: boolean) => Promise<Worktree>
   removeWorktree: (worktreeId: string) => Promise<void>
 }
 
@@ -149,6 +150,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       return updated
     } catch (error) {
       set({ error: (error as Error).message, loading: false })
+      throw error
+    }
+  },
+
+  setWorktreeArchived: async (worktreeId: string, isArchived: boolean) => {
+    set({ error: null })
+    try {
+      const updated = await worktreesApi.updateWorktree(worktreeId, { isArchived })
+      set((state) => ({
+        worktreesByProjectId: {
+          ...state.worktreesByProjectId,
+          [updated.projectId]: (state.worktreesByProjectId[updated.projectId] ?? []).map((wt) =>
+            wt.id === updated.id ? updated : wt
+          ),
+        },
+      }))
+      return updated
+    } catch (error) {
+      set({ error: (error as Error).message })
       throw error
     }
   },

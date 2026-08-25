@@ -11,6 +11,7 @@ type WorktreeRow = {
   head: string | null
   is_main: number
   is_dirty: number
+  is_archived: number
   created_by_app: number
   created_at: string
   updated_at: string
@@ -27,6 +28,7 @@ function rowToWorktree(row: WorktreeRow): Worktree {
     head: row.head,
     isMain: row.is_main === 1,
     isDirty: row.is_dirty === 1,
+    isArchived: row.is_archived === 1,
     createdByApp: row.created_by_app === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -38,8 +40,8 @@ export function createWorktreeRepository(db: Database.Database) {
   const findByProjectIdStmt = db.prepare('SELECT * FROM worktrees WHERE project_id = ? ORDER BY is_main DESC, name ASC')
   const findByPathStmt = db.prepare('SELECT * FROM worktrees WHERE path = ?')
   const upsertStmt = db.prepare(`
-    INSERT INTO worktrees (id, project_id, name, display_name, path, branch, head, is_main, is_dirty, created_by_app, created_at, updated_at)
-    VALUES (@id, @projectId, @name, @displayName, @path, @branch, @head, @isMain, @isDirty, @createdByApp, @createdAt, @updatedAt)
+    INSERT INTO worktrees (id, project_id, name, display_name, path, branch, head, is_main, is_dirty, is_archived, created_by_app, created_at, updated_at)
+    VALUES (@id, @projectId, @name, @displayName, @path, @branch, @head, @isMain, @isDirty, @isArchived, @createdByApp, @createdAt, @updatedAt)
     ON CONFLICT(id) DO UPDATE SET
       name = @name,
       display_name = @displayName,
@@ -48,6 +50,7 @@ export function createWorktreeRepository(db: Database.Database) {
       head = @head,
       is_main = @isMain,
       is_dirty = @isDirty,
+      is_archived = @isArchived,
       updated_at = @updatedAt
   `)
   const deleteStmt = db.prepare('DELETE FROM worktrees WHERE id = ?')
@@ -84,6 +87,7 @@ export function createWorktreeRepository(db: Database.Database) {
         head: worktree.head,
         isMain: worktree.isMain ? 1 : 0,
         isDirty: worktree.isDirty ? 1 : 0,
+        isArchived: worktree.isArchived ? 1 : 0,
         createdByApp: worktree.createdByApp ? 1 : 0,
         createdAt: worktree.createdAt,
         updatedAt: worktree.updatedAt,

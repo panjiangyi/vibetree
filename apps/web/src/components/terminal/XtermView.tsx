@@ -6,6 +6,7 @@ import '@xterm/xterm/css/xterm.css'
 import { isInputEventLoggingEnabled, logInputEvent } from '../../debug/input-event-logger.js'
 import { terminalSocket } from '../../ws/terminal-socket.js'
 import { useThemeStore } from '../../stores/theme.store.js'
+import { openTerminalWebUrl } from './terminal-links.js'
 import {
   createVoiceInputState,
   getVoiceCommitText,
@@ -452,10 +453,13 @@ export function XtermView({
       fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
       theme,
       scrollback: 10000,
+      linkHandler: {
+        activate: (_event, uri) => openTerminalWebUrl(uri),
+      },
     })
 
     const fitAddon = new FitAddon()
-    const webLinksAddon = new WebLinksAddon()
+    const webLinksAddon = new WebLinksAddon((_event, uri) => openTerminalWebUrl(uri))
 
     term.loadAddon(fitAddon)
     term.loadAddon(webLinksAddon)

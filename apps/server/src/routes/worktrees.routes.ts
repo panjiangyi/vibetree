@@ -12,6 +12,7 @@ const createWorktreeSchema = z.object({
 
 const updateWorktreeSchema = z.object({
   displayName: z.string().nullable().optional(),
+  isArchived: z.boolean().optional(),
 })
 
 const checkMergeSchema = z.object({

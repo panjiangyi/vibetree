@@ -164,6 +164,9 @@ function runMigrations(db: Database.Database): void {
   if (!worktreeCols.has('display_name')) {
     db.exec('ALTER TABLE worktrees ADD COLUMN display_name TEXT')
   }
+  if (!worktreeCols.has('is_archived')) {
+    db.exec('ALTER TABLE worktrees ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0')
+  }
 
   migrateTerminalSessionsToScopedModel(db)
   migrateDefaultWorktreeBasePaths(db)

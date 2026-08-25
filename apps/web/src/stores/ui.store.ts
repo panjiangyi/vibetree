@@ -17,7 +17,6 @@ type UiStore = {
   expandedProjectIds: Set<string>
   isMobileSidebarOpen: boolean
   isDesktopSidebarCollapsed: boolean
-  sidebarWidth: number
 
   openDialog: (dialog: DialogType, data?: Record<string, unknown>) => void
   closeDialog: () => void
@@ -27,7 +26,6 @@ type UiStore = {
   toggleDesktopSidebar: () => void
   setDesktopSidebarCollapsed: (collapsed: boolean) => void
   toggleProjectExpanded: (projectId: string) => void
-  setSidebarWidth: (width: number) => void
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -36,7 +34,6 @@ export const useUiStore = create<UiStore>((set) => ({
   expandedProjectIds: new Set(),
   isMobileSidebarOpen: false,
   isDesktopSidebarCollapsed: false,
-  sidebarWidth: 280,
 
   openDialog: (dialog, data) => {
     set({ activeDialog: dialog, activeDialogData: data })
@@ -76,9 +73,5 @@ export const useUiStore = create<UiStore>((set) => ({
       }
       return { expandedProjectIds: expanded }
     })
-  },
-
-  setSidebarWidth: (width: number) => {
-    set({ sidebarWidth: width })
   },
 }))

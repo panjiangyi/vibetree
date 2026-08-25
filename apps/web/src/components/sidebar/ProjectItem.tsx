@@ -1,4 +1,5 @@
-import { ChevronRight, ChevronDown, RefreshCw, Plus, Settings } from 'lucide-react'
+import { useState } from 'react'
+import { Archive, ArchiveRestore, ChevronRight, ChevronDown, RefreshCw, Plus, Settings } from 'lucide-react'
 import type { Project, Worktree } from '@worktreehub/shared'
 import { useUiStore } from '../../stores/ui.store.js'
 import { useProjectStore } from '../../stores/project.store.js'
@@ -22,9 +23,13 @@ export function ProjectItem({
   const expandedProjectIds = useUiStore((s) => s.expandedProjectIds)
   const toggleProjectExpanded = useUiStore((s) => s.toggleProjectExpanded)
   const refreshProject = useProjectStore((s) => s.refreshProject)
+  const setWorktreeArchived = useProjectStore((s) => s.setWorktreeArchived)
   const openDialog = useUiStore((s) => s.openDialog)
+  const [showArchived, setShowArchived] = useState(false)
 
   const isExpanded = expandedProjectIds.has(project.id)
+  const visibleWorktrees = worktrees.filter((worktree) => !worktree.isArchived)
+  const archivedWorktrees = worktrees.filter((worktree) => worktree.isArchived)
 
   return (
     <div className="select-none">
@@ -79,7 +84,7 @@ export function ProjectItem({
 
       {isExpanded && (
         <div className={collapsed ? 'ml-2' : 'ml-4'}>
-          {worktrees.map((worktree) => (
+          {visibleWorktrees.map((worktree) => (
             <WorktreeItem
               key={worktree.id}
               project={project}
@@ -89,6 +94,37 @@ export function ProjectItem({
               onSelected={onWorktreeSelected}
             />
           ))}
+          {archivedWorktrees.length > 0 && !collapsed && (
+            <div className="mt-1">
+              <button
+                type="button"
+                className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs app-subtle app-hover rounded-md"
+                onClick={() => setShowArchived((value) => !value)}
+                aria-expanded={showArchived}
+              >
+                {showArchived ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                <Archive className="w-3.5 h-3.5" />
+                <span>Archived ({archivedWorktrees.length})</span>
+              </button>
+              {showArchived && archivedWorktrees.map((worktree) => {
+                const displayName = worktree.displayName || worktree.name
+                return (
+                  <div key={worktree.id} className="group flex items-center gap-2 mx-1 px-3 py-1.5 app-subtle">
+                    <span className="min-w-0 flex-1 truncate text-sm" title={displayName}>{displayName}</span>
+                    <button
+                      type="button"
+                      className="app-icon-button shrink-0"
+                      onClick={() => void setWorktreeArchived(worktree.id, false)}
+                      aria-label={`Restore ${displayName}`}
+                      title="Restore worktree"
+                    >
+                      <ArchiveRestore className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

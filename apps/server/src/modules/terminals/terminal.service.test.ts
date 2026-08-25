@@ -179,6 +179,7 @@ async function insertWorktreeFixture(input: Awaited<ReturnType<typeof createCont
     head: null,
     isMain: false,
     isDirty: false,
+    isArchived: false,
     createdByApp: true,
     createdAt: now,
     updatedAt: now,

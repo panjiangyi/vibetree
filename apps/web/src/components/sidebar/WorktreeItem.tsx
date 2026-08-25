@@ -1,6 +1,7 @@
-import { GitBranch, Pencil, Play, Terminal, Trash2 } from 'lucide-react'
+import { Archive, GitBranch, Pencil, Play, Terminal, Trash2 } from 'lucide-react'
 import type { Project, Worktree } from '@worktreehub/shared'
 import { useLayoutStore } from '../../stores/layout.store.js'
+import { useProjectStore } from '../../stores/project.store.js'
 import { useTerminalStore } from '../../stores/terminal.store.js'
 import { useUiStore } from '../../stores/ui.store.js'
 
@@ -22,13 +23,16 @@ export function WorktreeItem({
   const openTerminalForWorktree = useTerminalStore((s) => s.openTerminalForWorktree)
   const createTerminal = useTerminalStore((s) => s.createTerminal)
   const setActiveScope = useTerminalStore((s) => s.setActiveScope)
+  const activeScopeId = useTerminalStore((s) => s.activeScopeId)
   const terminals = useTerminalStore((s) => s.terminals)
+  const setWorktreeArchived = useProjectStore((s) => s.setWorktreeArchived)
   const openDialog = useUiStore((s) => s.openDialog)
   const addPaneForTerminal = useLayoutStore((s) => s.addPaneForTerminal)
 
   const runningCount = terminals.filter(
     (t) => t.worktreeId === worktree.id && t.status === 'running'
   ).length
+  const isActive = activeScopeId === worktree.id
 
   const displayName = worktree.displayName || worktree.name
   const mergeStatus = worktree.mergeCheck?.status
@@ -58,8 +62,10 @@ export function WorktreeItem({
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 app-hover cursor-pointer group rounded-md mx-1 ${mobile ? 'py-2.5' : 'py-1.5'}`}
+      className={`flex items-center gap-2 px-3 app-hover cursor-pointer group rounded-md mx-1 ${mobile ? 'py-2.5' : 'py-1.5'} ${isActive ? 'app-soft-info app-accent' : ''}`}
+      style={isActive ? { boxShadow: 'inset 3px 0 0 var(--color-accent)' } : undefined}
       onClick={handleOpen}
+      aria-current={isActive ? 'page' : undefined}
       title={collapsed ? [displayName, worktree.branch].filter(Boolean).join('\n') : undefined}
     >
       <div className="flex-1 min-w-0">
@@ -104,6 +110,19 @@ export function WorktreeItem({
       </div>
 
       <div className={`${mobile || collapsed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center gap-0.5`}>
+        {!worktree.isMain && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              void setWorktreeArchived(worktree.id, true)
+            }}
+            className="app-icon-button"
+            aria-label={`Archive ${displayName}`}
+            title="Archive worktree"
+          >
+            <Archive className="w-3 h-3" />
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation()

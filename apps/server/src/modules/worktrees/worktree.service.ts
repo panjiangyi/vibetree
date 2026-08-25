@@ -165,6 +165,7 @@ export function createWorktreeService(
           head: info.head,
           isMain,
           isDirty,
+          isArchived: existing?.isArchived ?? false,
           createdByApp: existing?.createdByApp ?? false,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
@@ -320,8 +321,9 @@ export function createWorktreeService(
         input.displayName === undefined
           ? wt.displayName
           : input.displayName?.trim() || null
+      const isArchived = input.isArchived ?? wt.isArchived
       const updatedAt = new Date().toISOString()
-      const updated = { ...wt, displayName, updatedAt }
+      const updated = { ...wt, displayName, isArchived, updatedAt }
       worktreeRepo.upsert(updated)
       return updated
     },

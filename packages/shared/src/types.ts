@@ -20,6 +20,7 @@ export type Worktree = {
   head: string | null
   isMain: boolean
   isDirty: boolean
+  isArchived: boolean
   mergeCheck?: MergeCheckResult
   createdByApp: boolean
   createdAt: string
@@ -115,6 +116,7 @@ export type CreateWorktreeInput = {
 
 export type UpdateWorktreeInput = {
   displayName?: string | null
+  isArchived?: boolean
 }
 
 export type CreateTerminalInput = {
